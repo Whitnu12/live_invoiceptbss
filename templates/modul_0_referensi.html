@@ -1,0 +1,843 @@
+{% extends "layout/base.html" %}
+
+{% block title %}
+Modul 0 - Master Referensi
+{% endblock %}
+
+{% block content %}
+
+<div id="modul0Root" class="m0-root">
+
+    <div class="m0-header">
+        <div>
+            <div class="m0-kicker">MODUL 0</div>
+            <h1>Master Referensi Harga &amp; Pekerjaan</h1>
+            <p>
+                Kelola data referensi yang digunakan oleh modul pekerjaan dan dokumen.
+            </p>
+        </div>
+
+        <div class="m0-db-status" id="m0DbStatus">
+            Memuat...
+        </div>
+    </div>
+
+    {% if load_error %}
+    <div class="m0-alert error">
+        Database tidak dapat dimuat: {{ load_error }}
+    </div>
+    {% endif %}
+
+    {% if not can_write %}
+    <div class="m0-alert info">
+        Akun Anda memiliki akses baca. Input, Save As, Update, dan Hapus dinonaktifkan.
+    </div>
+    {% endif %}
+
+    <div class="m0-tabs">
+        <button type="button" class="m0-tab active" data-tab="referensi">Master Referensi</button>
+        <button type="button" class="m0-tab" data-tab="alat">Master Nama Alat</button>
+    </div>
+
+    <section id="tabReferensi" class="m0-tab-panel active">
+        <div class="m0-card">
+            <div class="m0-card-head">
+                <div>
+                    <h2>Input / Panggil Master</h2>
+                    <span id="m0ModeText">Mode data baru</span>
+                </div>
+                <button type="button" class="m0-btn ghost" id="m0ResetBtn">Data Baru</button>
+            </div>
+
+            <form id="m0Form">
+                <input type="hidden" id="m0RecordId">
+
+                <div class="m0-grid">
+                    <label>
+                        <span>Nomor Kontrak</span>
+                        <input id="m0NomorKontrak" list="m0KontrakList" required>
+                        <datalist id="m0KontrakList">
+                            {% for value in options.nomor_kontrak %}
+                            <option value="{{ value }}">
+                            {% endfor %}
+                        </datalist>
+                    </label>
+
+                    <label>
+                        <span>Kategori</span>
+                        <input id="m0Kategori" list="m0KategoriList" required>
+                        <datalist id="m0KategoriList">
+                            {% for value in options.kategori %}
+                            <option value="{{ value }}">
+                            {% endfor %}
+                        </datalist>
+                    </label>
+
+                    <label>
+                        <span>Unit</span>
+                        <input id="m0Unit" list="m0UnitList" required>
+                        <datalist id="m0UnitList">
+                            {% for value in options.unit %}
+                            <option value="{{ value }}">
+                            {% endfor %}
+                        </datalist>
+                    </label>
+
+                    <label>
+                        <span>Harga Satuan (Rp)</span>
+                        <input id="m0HargaSatuan" type="number" min="0" step="0.01" required>
+                    </label>
+
+                    <label class="wide">
+                        <span>Uraian Pekerjaan</span>
+                        <textarea id="m0Uraian" rows="3" required></textarea>
+                    </label>
+                </div>
+
+                {% if can_write %}
+                <div class="m0-actions">
+                    <button type="submit" class="m0-btn primary" id="m0SaveBtn">Simpan Master Baru</button>
+                    <button type="button" class="m0-btn secondary" id="m0SaveAsBtn" disabled>Save As</button>
+                    <button type="button" class="m0-btn warning" id="m0UpdateBtn" disabled>Update Data</button>
+                </div>
+                {% endif %}
+
+            </form>
+            <div id="m0Message"></div>
+        </div>
+
+        <div class="m0-card">
+            <div class="m0-card-head">
+                <div>
+                    <h2>Daftar Master Referensi</h2>
+                    <span id="m0Total">0 record</span>
+                </div>
+                <button type="button" class="m0-btn ghost" id="m0RefreshBtn">Refresh</button>
+            </div>
+
+            <div class="m0-filter">
+                <input id="m0Search" placeholder="Cari kontrak, kategori, uraian, unit...">
+                <select id="m0FilterKontrak">
+                    <option value="">Semua Kontrak</option>
+                    {% for value in options.nomor_kontrak %}
+                    <option value="{{ value }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+                <select id="m0FilterKategori">
+                    <option value="">Semua Kategori</option>
+                    {% for value in options.kategori %}
+                    <option value="{{ value }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" class="m0-btn secondary" id="m0FilterBtn">Terapkan</button>
+            </div>
+
+            <div class="m0-table-wrap">
+                <table class="m0-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nomor Kontrak</th>
+                            <th>Kategori</th>
+                            <th>Uraian Pekerjaan</th>
+                            <th>Unit</th>
+                            <th>Harga Satuan</th>
+                            <th>Update Terakhir</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="m0TableBody">
+                        <tr><td colspan="8" class="m0-empty">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="m0-pagination-bar">
+                <div class="m0-pagination-info" id="m0PaginationInfo">
+                    Menampilkan 0 record
+                </div>
+
+                <div class="m0-pagination-controls">
+                    <label class="m0-page-size">
+                        <span>Per halaman</span>
+                        <select id="m0PageSize">
+                            <option value="20">20</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+
+                    <button type="button" class="m0-page-btn" id="m0PrevPage" disabled>‹</button>
+                    <div id="m0PageNumbers" class="m0-page-numbers"></div>
+                    <button type="button" class="m0-page-btn" id="m0NextPage" disabled>›</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tabAlat" class="m0-tab-panel">
+        <div class="m0-card">
+            <div class="m0-card-head">
+                <div>
+                    <h2>Master Nama Alat</h2>
+                    <span id="m0AlatTotal">0 record</span>
+                </div>
+                <button type="button" class="m0-btn ghost" id="m0AlatRefresh">Refresh</button>
+            </div>
+            <div class="m0-table-wrap">
+                <table class="m0-table">
+                    <thead><tr><th>No</th><th>Nama Alat</th></tr></thead>
+                    <tbody id="m0AlatBody">
+                        <tr><td colspan="2" class="m0-empty">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+.m0-root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#18221f;width:100%;padding:4px 0 30px}
+.m0-header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px}
+.m0-kicker{font-size:11px;font-weight:800;letter-spacing:.12em;color:#1f5eff;margin-bottom:5px}
+.m0-header h1{font-size:22px;margin:0 0 5px;color:#172b3a}
+.m0-header p{margin:0;color:#667085;font-size:13px}
+.m0-db-status{font-size:12px;padding:8px 12px;border-radius:8px;background:#f2f4f7;color:#667085;white-space:nowrap}
+.m0-card{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 8px rgba(16,24,40,.04)}
+.m0-card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}
+.m0-card-head h2{font-size:15px;margin:0 0 3px;color:#344054}
+.m0-card-head span{font-size:11px;color:#98a2b3}
+.m0-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.m0-grid label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#344054}
+.m0-grid label.wide{grid-column:1/-1}
+.m0-grid input,.m0-grid textarea,.m0-filter input,.m0-filter select{width:100%;border:1px solid #d0d5dd;border-radius:7px;padding:9px 10px;font:inherit;font-size:12px;background:#fff;color:#101828;outline:none}
+.m0-grid input:focus,.m0-grid textarea:focus,.m0-filter input:focus,.m0-filter select:focus{border-color:#1f5eff;box-shadow:0 0 0 3px rgba(31,94,255,.08)}
+.m0-actions{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
+.m0-btn{border:1px solid #d0d5dd;border-radius:7px;padding:9px 13px;font-size:12px;font-weight:700;cursor:pointer;background:#fff;color:#344054}
+.m0-btn.primary{background:#1f5eff;color:#fff;border-color:#1f5eff}
+.m0-btn.secondary{background:#f8fafc}
+.m0-btn.warning{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+.m0-btn.ghost{background:#fff}
+.m0-btn:disabled{opacity:.45;cursor:not-allowed}
+.m0-tabs{display:flex;gap:4px;border-bottom:1px solid #e4e7ec;margin-bottom:15px}
+.m0-tab{border:0;background:transparent;padding:9px 13px;font-size:12px;font-weight:700;color:#667085;cursor:pointer;border-bottom:2px solid transparent}
+.m0-tab.active{color:#1f5eff;border-bottom-color:#1f5eff}
+.m0-tab-panel{display:none}.m0-tab-panel.active{display:block}
+.m0-filter{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:12px}
+.m0-table-wrap{overflow:auto;border:1px solid #e4e7ec;border-radius:8px;max-height:520px}
+.m0-table{width:100%;border-collapse:collapse;font-size:11px;min-width:900px}
+.m0-table th{position:sticky;top:0;background:#f8fafc;color:#475467;font-weight:800;text-align:left;padding:10px;border-bottom:1px solid #e4e7ec;z-index:1}
+.m0-table td{padding:9px 10px;border-bottom:1px solid #f0f2f5;vertical-align:top;color:#344054}
+.m0-table tr:hover td{background:#f9fbff}
+.m0-empty{text-align:center!important;padding:30px!important;color:#98a2b3!important}
+
+.m0-pagination-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid #eaecf0;
+    flex-wrap:wrap;
+}
+.m0-pagination-info{
+    font-size:11px;
+    color:#667085;
+}
+.m0-pagination-controls{
+    display:flex;
+    align-items:center;
+    gap:5px;
+}
+.m0-page-size{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-right:8px;
+    color:#667085;
+    font-size:11px;
+}
+.m0-page-size select{
+    border:1px solid #d0d5dd;
+    border-radius:6px;
+    padding:5px 8px;
+    background:#fff;
+    font-size:11px;
+}
+.m0-page-btn,
+.m0-page-number{
+    min-width:30px;
+    height:30px;
+    border:1px solid #d0d5dd;
+    border-radius:6px;
+    background:#fff;
+    color:#344054;
+    font-size:11px;
+    cursor:pointer;
+}
+.m0-page-btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+.m0-page-number.active{
+    background:#1f5eff;
+    border-color:#1f5eff;
+    color:#fff;
+}
+.m0-page-numbers{
+    display:flex;
+    gap:4px;
+}
+.m0-page-ellipsis{
+    min-width:20px;
+    height:30px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#98a2b3;
+}
+.m0-row-actions{display:flex;gap:5px}.m0-row-btn{border:1px solid #d0d5dd;background:#fff;border-radius:6px;padding:5px 7px;font-size:10px;font-weight:700;cursor:pointer}.m0-row-btn.delete{color:#b42318}
+.m0-alert{padding:10px 12px;border-radius:8px;font-size:12px;margin-bottom:14px}.m0-alert.info{background:#eff8ff;color:#175cd3}.m0-alert.error,.m0-error{background:#fef3f2;color:#b42318;border:1px solid #fecdca;padding:12px;border-radius:8px}
+@media(max-width:800px){.m0-grid,.m0-filter{grid-template-columns:1fr}.m0-grid label.wide{grid-column:auto}.m0-header{flex-direction:column}}
+</style>
+
+<script>
+(function(){
+"use strict";
+
+const root=document.getElementById("modul0Root");
+if(!root || root.dataset.initialized==="1") return;
+root.dataset.initialized="1";
+
+const canWrite={{ "true" if can_write else "false" }};
+let currentRecord=null;
+let currentPage=1;
+let totalPages=1;
+
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const money=v=>Number(v||0).toLocaleString("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function message(text,type="success"){
+    const el=$("m0Message");
+    if(!el)return;
+    el.innerHTML=`<div class="m0-alert ${type==="error"?"error":"info"}">${esc(text)}</div>`;
+    setTimeout(()=>{el.innerHTML=""},3500);
+}
+
+function payload(){
+    return {
+        nomor_kontrak:$("m0NomorKontrak").value.trim(),
+        kategori:$("m0Kategori").value.trim(),
+        uraian_pekerjaan:$("m0Uraian").value.trim(),
+        unit:$("m0Unit").value.trim(),
+        harga_satuan:$("m0HargaSatuan").value
+    };
+}
+
+function setForm(row){
+    currentRecord=row||null;
+    $("m0NomorKontrak").value=row?.nomor_kontrak||"";
+    $("m0Kategori").value=row?.kategori||"";
+    $("m0Uraian").value=row?.uraian_pekerjaan||"";
+    $("m0Unit").value=row?.unit||"";
+    $("m0HargaSatuan").value=row?.harga_satuan??"";
+    $("m0RecordId").value=row?.id??"";
+
+    const editing=!!row;
+    $("m0ModeText").textContent=editing
+        ?"Data dipanggil — pilih Update atau Save As"
+        :"Mode data baru";
+
+    if(canWrite){
+        $("m0SaveBtn").disabled=editing;
+        $("m0SaveAsBtn").disabled=!editing;
+        $("m0UpdateBtn").disabled=!editing;
+    }
+}
+
+function resetForm(){
+    setForm(null);
+    $("m0Form").reset();
+    $("m0ModeText").textContent="Mode data baru";
+    if(canWrite){
+        $("m0SaveBtn").disabled=false;
+        $("m0SaveAsBtn").disabled=true;
+        $("m0UpdateBtn").disabled=true;
+    }
+}
+
+async function api(url,options={}){
+    const res=await fetch(url,{
+        credentials:"same-origin",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        ...options
+    });
+    const data=await res.json().catch(()=>({success:false,message:"Respons server tidak valid."}));
+    if(!res.ok || data.success===false) throw new Error(data.message||("HTTP "+res.status));
+    return data;
+}
+
+async function loadRows(){
+
+    const pageSize = Number($("m0PageSize").value || 50);
+
+    const params = new URLSearchParams();
+    params.set("page", String(currentPage));
+    params.set("per_page", String(pageSize));
+    params.set("search", $("m0Search").value.trim());
+    params.set("nomor_kontrak", $("m0FilterKontrak").value);
+    params.set("kategori", $("m0FilterKategori").value);
+
+    $("m0TableBody").innerHTML = `
+        <tr>
+            <td colspan="8" class="m0-empty">
+                Memuat ${pageSize} data...
+            </td>
+        </tr>
+    `;
+
+    try{
+
+        const data = await api(
+            "/api/modul-0/referensi?" +
+            params.toString()
+        );
+
+        // Pastikan backend benar-benar mengembalikan page size yang diminta.
+        const serverPageSize =
+            Number(data.per_page || pageSize);
+
+        currentPage =
+            Number(data.page || 1);
+
+        totalPages =
+            Number(data.total_pages || 1);
+
+        $("m0Total").textContent =
+            `${Number(data.total || 0).toLocaleString("id-ID")} record`;
+
+        renderPagination(data);
+
+        if(!Array.isArray(data.data) || !data.data.length){
+
+            $("m0TableBody").innerHTML = `
+                <tr>
+                    <td colspan="8" class="m0-empty">
+                        Tidak ada data yang sesuai.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        const startNumber =
+            ((currentPage - 1) * serverPageSize);
+
+        $("m0TableBody").innerHTML =
+            data.data.map((r,i)=>`
+                <tr>
+                    <td>${startNumber + i + 1}</td>
+                    <td>${esc(r.nomor_kontrak)}</td>
+                    <td>${esc(r.kategori)}</td>
+                    <td>${esc(r.uraian_pekerjaan)}</td>
+                    <td>${esc(r.unit)}</td>
+                    <td style="text-align:right;white-space:nowrap">
+                        Rp ${money(r.harga_satuan)}
+                    </td>
+                    <td style="white-space:nowrap">
+                        ${esc(r.update_terakhir)}
+                    </td>
+                    <td>
+                        ${canWrite ? `
+                        <div class="m0-row-actions">
+                            <button
+                                class="m0-row-btn"
+                                data-action="edit"
+                                data-index="${i}">
+                                Edit
+                            </button>
+                            <button
+                                class="m0-row-btn delete"
+                                data-action="delete"
+                                data-index="${i}">
+                                Hapus
+                            </button>
+                        </div>
+                        ` : "—"}
+                    </td>
+                </tr>
+            `).join("");
+
+        [...$("m0TableBody").querySelectorAll("button")]
+            .forEach(btn=>{
+
+                const idx = Number(btn.dataset.index);
+                const row = data.data[idx];
+
+                btn.addEventListener("click",async()=>{
+
+                    if(btn.dataset.action === "edit"){
+
+                        setForm(row);
+
+                        root.scrollIntoView({
+                            behavior:"smooth",
+                            block:"start"
+                        });
+
+                        return;
+                    }
+
+                    if(btn.dataset.action === "delete"){
+
+                        if(!confirm(
+                            "Hapus data master ini?"
+                        )){
+                            return;
+                        }
+
+                        try{
+
+                            await api(
+                                "/api/modul-0/referensi/delete",
+                                {
+                                    method:"POST",
+                                    body:JSON.stringify(row)
+                                }
+                            );
+
+                            message(
+                                "Data master berhasil dihapus."
+                            );
+
+                            if(
+                                currentRecord &&
+                                JSON.stringify(currentRecord) ===
+                                JSON.stringify(row)
+                            ){
+                                resetForm();
+                            }
+
+                            // Setelah delete, tetap berada pada page aktif.
+                            await loadRows();
+                            await loadOptions();
+
+                        }catch(e){
+
+                            message(
+                                e.message,
+                                "error"
+                            );
+                        }
+                    }
+                });
+            });
+
+    }catch(e){
+
+        console.error(
+            "Modul 0 loadRows:",
+            e
+        );
+
+        $("m0TableBody").innerHTML = `
+            <tr>
+                <td colspan="8" class="m0-empty">
+                    Data tidak dapat dimuat.
+                </td>
+            </tr>
+        `;
+
+        $("m0PaginationInfo").textContent =
+            "Gagal memuat data.";
+
+        $("m0DbStatus").textContent =
+            "Database error";
+
+        $("m0DbStatus").style.color =
+            "#b42318";
+    }
+}
+
+function renderPagination(data){
+
+    const total =
+        Number(data.total || 0);
+
+    const page =
+        Number(data.page || 1);
+
+    const perPage =
+        Number(data.per_page || 50);
+
+    const pages =
+        Number(data.total_pages || 1);
+
+    totalPages = pages;
+
+    const first =
+        total === 0
+            ? 0
+            : ((page - 1) * perPage) + 1;
+
+    const last =
+        Math.min(
+            page * perPage,
+            total
+        );
+
+    $("m0PaginationInfo").textContent =
+        total === 0
+            ? "0 record"
+            : `Menampilkan ${first.toLocaleString("id-ID")}–${last.toLocaleString("id-ID")} dari ${total.toLocaleString("id-ID")} record`;
+
+    $("m0PrevPage").disabled =
+        page <= 1;
+
+    $("m0NextPage").disabled =
+        page >= pages;
+
+    const container =
+        $("m0PageNumbers");
+
+    container.innerHTML = "";
+
+    if(pages <= 1){
+        return;
+    }
+
+    const pageList = [];
+
+    if(pages <= 7){
+
+        for(let i=1; i<=pages; i++){
+            pageList.push(i);
+        }
+
+    }else{
+
+        pageList.push(1);
+
+        if(page > 4){
+            pageList.push("...");
+        }
+
+        for(
+            let i=Math.max(2,page-2);
+            i<=Math.min(pages-1,page+2);
+            i++
+        ){
+            pageList.push(i);
+        }
+
+        if(page < pages - 3){
+            pageList.push("...");
+        }
+
+        pageList.push(pages);
+    }
+
+    pageList.forEach(item=>{
+
+        if(item === "..."){
+
+            const span =
+                document.createElement("span");
+
+            span.className =
+                "m0-page-ellipsis";
+
+            span.textContent =
+                "...";
+
+            container.appendChild(span);
+
+            return;
+        }
+
+        const button =
+            document.createElement("button");
+
+        button.type =
+            "button";
+
+        button.className =
+            "m0-page-number" +
+            (item === page ? " active" : "");
+
+        button.textContent =
+            item;
+
+        button.addEventListener(
+            "click",
+            ()=>{
+                if(item === currentPage){
+                    return;
+                }
+
+                currentPage = item;
+                loadRows();
+            }
+        );
+
+        container.appendChild(button);
+    });
+}
+
+async function loadAlat(){
+    try{
+        const data=await api("/api/modul-0/nama-alat");
+        $("m0AlatTotal").textContent=`${data.total} record`;
+        $("m0AlatBody").innerHTML=data.data.length
+            ?data.data.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.nama_alat)}</td></tr>`).join("")
+            :'<tr><td colspan="2" class="m0-empty">Belum ada nama alat.</td></tr>';
+    }catch(e){
+        $("m0AlatBody").innerHTML=`<tr><td colspan="2" class="m0-empty">${esc(e.message)}</td></tr>`;
+    }
+}
+
+async function loadOptions(){
+    try{
+        const data=await api("/api/modul-0/options");
+        $("m0DbStatus").textContent="MySQL terhubung";
+        $("m0DbStatus").style.color="#027a48";
+    }catch(e){
+        $("m0DbStatus").textContent="MySQL tidak terhubung";
+        $("m0DbStatus").style.color="#b42318";
+    }
+}
+
+$("m0Form").addEventListener("submit",async e=>{
+    e.preventDefault();
+    if(!canWrite)return;
+    try{
+        await api("/api/modul-0/referensi",{method:"POST",body:JSON.stringify(payload())});
+        message("Master Referensi baru berhasil disimpan.");
+        resetForm();
+        await loadRows(); await loadOptions();
+    }catch(err){message(err.message,"error")}
+});
+
+$("m0SaveAsBtn")?.addEventListener("click",async()=>{
+    try{
+        await api("/api/modul-0/referensi/save-as",{method:"POST",body:JSON.stringify(payload())});
+        message("Save As berhasil. Data sumber tetap tersimpan.");
+        resetForm(); await loadRows(); await loadOptions();
+    }catch(e){message(e.message,"error")}
+});
+
+$("m0UpdateBtn")?.addEventListener("click",async()=>{
+    try{
+        if(!currentRecord) throw new Error("Tidak ada data yang sedang dipanggil.");
+        await api("/api/modul-0/referensi/update",{
+            method:"POST",
+            body:JSON.stringify({data:payload(),old_data:currentRecord})
+        });
+        message("Data master berhasil di-update.");
+        resetForm(); await loadRows(); await loadOptions();
+    }catch(e){message(e.message,"error")}
+});
+
+$("m0ResetBtn").addEventListener(
+    "click",
+    ()=>{
+        resetForm();
+        currentPage=1;
+        loadRows();
+    }
+);
+
+$("m0RefreshBtn").addEventListener(
+    "click",
+    ()=>{
+        currentPage=1;
+        loadRows();
+    }
+);
+
+$("m0FilterBtn").addEventListener(
+    "click",
+    ()=>{
+        currentPage=1;
+        loadRows();
+    }
+);
+
+$("m0Search").addEventListener(
+    "keydown",
+    e=>{
+        if(e.key==="Enter"){
+            currentPage=1;
+            loadRows();
+        }
+    }
+);
+
+$("m0FilterKontrak").addEventListener(
+    "change",
+    ()=>{
+        currentPage=1;
+        loadRows();
+    }
+);
+
+$("m0FilterKategori").addEventListener(
+    "change",
+    ()=>{
+        currentPage=1;
+        loadRows();
+    }
+);
+
+$("m0PageSize").addEventListener(
+    "change",
+    ()=>{
+        currentPage=1;
+        loadRows();
+    }
+);
+
+$("m0PrevPage").addEventListener(
+    "click",
+    ()=>{
+        if(currentPage > 1){
+            currentPage--;
+            loadRows();
+        }
+    }
+);
+
+$("m0NextPage").addEventListener(
+    "click",
+    ()=>{
+        if(currentPage < totalPages){
+            currentPage++;
+            loadRows();
+        }
+    }
+);
+
+$("m0AlatRefresh").addEventListener(
+    "click",
+    loadAlat
+);
+
+root.querySelectorAll(".m0-tab").forEach(tab=>{
+    tab.addEventListener("click",()=>{
+        root.querySelectorAll(".m0-tab").forEach(x=>x.classList.remove("active"));
+        root.querySelectorAll(".m0-tab-panel").forEach(x=>x.classList.remove("active"));
+        tab.classList.add("active");
+        if(tab.dataset.tab==="referensi") $("tabReferensi").classList.add("active");
+        else { $("tabAlat").classList.add("active"); loadAlat(); }
+    });
+});
+
+loadOptions();
+loadRows();
+})();
+</script>
+
+{% endblock %}

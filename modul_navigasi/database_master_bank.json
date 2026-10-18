@@ -1,0 +1,30 @@
+[
+  {
+    "bank_name": "BANK RAKYAT INDONESIA (PERSERO) Tbk.",
+    "bank_branch": "Cabang Luwuk",
+    "account_no": "0167 0167 8888 303",
+    "account_name": "PT. BANGGAI SENTRAL SULAWESI",
+    "attn": "Accounts Payable - Finance Department"
+  },
+  {
+    "bank_name": "tes",
+    "bank_branch": "Tes",
+    "account_no": "1234567",
+    "account_name": "tes",
+    "attn": "tes"
+  },
+  {
+    "bank_name": "Bank BNI Cabang Luwuk (Sulawesi Tengah",
+    "bank_branch": "Bank BNI Cabang Luwuk (Sulawesi Tengah",
+    "account_no": "0900209782",
+    "account_name": "PT. Banggai Sentral Sulawesi",
+    "attn": ""
+  },
+  {
+    "bank_name": "Bank BNI Cabang Luwuk (Sulawesi Tengah)",
+    "bank_branch": "Bank BNI Cabang Luwuk (Sulawesi Tengah)",
+    "account_no": "0900209782",
+    "account_name": "PT. Banggai Sentral Sulawesi",
+    "attn": ""
+  }
+]

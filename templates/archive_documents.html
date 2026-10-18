@@ -1,0 +1,99 @@
+{% extends "layout/base.html" %}
+
+{% block title %}{{ title }} · Invoice PT BSS{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/archive-documents.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="archive-page" data-can-write="{{ 'true' if can_write else 'false' }}">
+    <header class="archive-heading">
+        <div>
+            <div class="archive-eyebrow">{{ module_code }} <span>·</span> OPERASIONAL</div>
+            <h1>Arsip Dokumen</h1>
+            <p>Simpan, cari, dan kelola dokumen berdasarkan kontrak dalam satu tempat.</p>
+        </div>
+        <div class="archive-heading-note"><span class="archive-note-mark"></span> Pratinjau langsung · tanpa salinan tambahan</div>
+    </header>
+
+    <div class="archive-layout">
+        <aside class="archive-upload-panel">
+            <div class="archive-panel-heading">
+                <span class="archive-step">01</span>
+                <div><h2>Tambah dokumen</h2><p>Hubungkan berkas ke kontrak terkait.</p></div>
+            </div>
+            {% if can_write %}
+            <form id="archiveUploadForm" class="archive-form" enctype="multipart/form-data">
+                <label>Nomor kontrak <span class="required-mark">*</span>
+                    <input name="contract_number" maxlength="150" required placeholder="Contoh: 7201250141" autocomplete="off">
+                </label>
+                <div class="archive-form-pair">
+                    <label>Nomor PI
+                        <input name="pi_number" maxlength="150" placeholder="Opsional">
+                    </label>
+                    <label>Nomor PO / Referensi
+                        <input name="reference_number" maxlength="150" placeholder="WO, CTR, PO…">
+                    </label>
+                </div>
+                <label>Kategori <span class="required-mark">*</span>
+                    <select name="category" required>
+                        {% for key, label in categories.items() %}
+                        <option value="{{ key }}">{{ label }}{% if key in ['official_invoice', 'tax_invoice', 'vat_payment', 'withholding_tax'] %} · Privat{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="archive-file-field">Berkas <span class="required-mark">*</span>
+                    <input name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv,.zip" required>
+                    <small>PDF, gambar, Word, Excel, CSV, atau ZIP · Maks. 25 MB</small>
+                </label>
+                <label>Catatan / lingkup pekerjaan
+                    <textarea name="note" rows="3" maxlength="4000" placeholder="Tambahkan konteks agar dokumen mudah ditemukan kembali."></textarea>
+                </label>
+                <button class="archive-submit" type="submit"><span>+</span> Simpan ke arsip</button>
+                <p class="archive-form-status" id="archiveUploadStatus" role="status" aria-live="polite"></p>
+                <div class="archive-permission-note">Berkas privat hanya dapat dilihat oleh role yang berwenang.</div>
+            </form>
+            {% else %}
+            <div class="archive-readonly"><strong>Akses baca</strong><p>Anda dapat mencari dan mengunduh dokumen. Hubungi administrator untuk menambahkan atau menghapus arsip.</p></div>
+            {% endif %}
+        </aside>
+
+        <section class="archive-catalog" aria-labelledby="archiveCatalogTitle">
+            <div class="archive-catalog-top">
+                <div class="archive-panel-heading">
+                    <span class="archive-step">02</span>
+                    <div><h2 id="archiveCatalogTitle">Daftar arsip</h2><p id="archiveSummary">Memuat dokumen…</p></div>
+                </div>
+                <button type="button" class="archive-refresh" id="archiveRefresh" aria-label="Muat ulang daftar">Muat ulang</button>
+            </div>
+            <form id="archiveFilterForm" class="archive-filters">
+                <label class="archive-search"><span aria-hidden="true">⌕</span><input id="archiveQuery" name="q" type="search" placeholder="Cari nama file, kontrak, PI, referensi…" autocomplete="off"></label>
+                <input id="archiveContract" name="contract" class="archive-contract-filter" placeholder="Nomor kontrak persis" autocomplete="off">
+                <select id="archiveCategory" name="category" aria-label="Filter kategori">
+                    <option value="">Semua kategori</option>
+                    {% for key, label in categories.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                </select>
+                <button type="submit" class="archive-filter-button">Cari</button>
+            </form>
+            <div class="archive-status" id="archiveListStatus" role="status" aria-live="polite"></div>
+            <div id="archiveList" class="archive-list"></div>
+            <nav class="archive-pagination" id="archivePagination" aria-label="Halaman arsip" hidden>
+                <button type="button" id="archivePrevious">← Sebelumnya</button>
+                <span id="archivePageLabel"></span>
+                <button type="button" id="archiveNext">Berikutnya →</button>
+            </nav>
+        </section>
+    </div>
+    <div class="archive-preview-modal" id="archivePreviewModal" role="dialog" aria-modal="true" aria-labelledby="archivePreviewTitle" aria-hidden="true">
+        <div class="archive-preview-window">
+            <header class="archive-preview-toolbar">
+                <div><span>PRATINJAU ARSIP</span><h2 id="archivePreviewTitle">Dokumen</h2></div>
+                <button type="button" id="archivePreviewClose" aria-label="Tutup pratinjau">Tutup <b>×</b></button>
+            </header>
+            <iframe id="archivePreviewFrame" title="Pratinjau dokumen arsip" src="about:blank" referrerpolicy="no-referrer"></iframe>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/archive-documents.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,134 @@
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Kuitansi Pembayaran - PT Banggai Sentral Sulawesi</title>
+        <style>
+            @page { 
+                size: A4 portrait; 
+                margin: 0mm; 
+            }
+            @media print {
+                html, body {
+                    width: 210mm;
+                    height: 297mm;
+                    margin: 0 !important;
+                    padding: 10mm !important;
+                    background: #fff !important;
+                    -webkit-print-color-adjust: exact;
+                }
+                @page { margin: 0; }
+            }
+            body { 
+                font-family: Arial, sans-serif; 
+                background-color: #ffffff; 
+                color: #000000; 
+                padding: 12mm; 
+                margin: 0; 
+                font-size: 12px; 
+            }
+            .receipt-box {
+                border: 2px solid #0f172a;
+                padding: 25px;
+                border-radius: 8px;
+                max-width: 720px;
+                margin: auto;
+                background: #ffffff;
+            }
+            .header-table {
+                width: 100%;
+                border-bottom: 2px solid #0f172a;
+                padding-bottom: 12px;
+                margin-bottom: 20px;
+            }
+            .receipt-title {
+                font-size: 20px;
+                font-weight: bold;
+                text-align: right;
+                color: #0f172a;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
+            }
+            .content-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12.5px;
+                margin-bottom: 20px;
+            }
+            .content-table td {
+                padding: 8px 4px;
+                vertical-align: top;
+            }
+            .nominal-box {
+                background-color: #f1f5f9;
+                border: 1px solid #0f172a;
+                padding: 8px 12px;
+                font-size: 15px;
+                font-weight: bold;
+                display: inline-block;
+                margin-top: 5px;
+            }
+            .terbilang-cell {
+                background-color: #f8fafc;
+                border: 1px dashed #64748b;
+                padding: 8px 12px;
+                font-style: italic;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="receipt-box">
+            <table class="header-table">
+                <tr>
+                    <td style="width: 55%; vertical-align: middle;">
+                        <h2 style="margin:0; font-size:16px; color:#0f172a; text-transform:uppercase;">PT. BANGGAI SENTRAL SULAWESI</h2>
+                        <p style="margin:2px 0; font-size:10px; color:#334155;">General Contractor and Supplier</p>
+                        <p style="margin:2px 0 0 0; font-size:9px; color:#475569;">Jl. Urip Sumoharjo No. 53, Luwuk, Kab. Banggai, Sulawesi Tengah</p>
+                    </td>
+                    <td style="width: 45%; text-align: right; vertical-align: middle;">
+                        <div class="receipt-title">KUITANSI PEMBAYARAN</div>
+                        <p style="margin: 0; font-size: 10.5px; color: #475569;">No. Ref: <b>KT-{{ reference_no|e }}</b></p>
+                    </td>
+                </tr>
+            </table>
+
+            <table class="content-table">
+                <tr>
+                    <td style="width: 150px; font-weight: bold;">Sudah Terima Dari</td>
+                    <td style="width: 15px;">:</td>
+                    <td style="font-weight: bold; font-size: 13.5px; color: #0f172a;">{{ invoice.customer|e }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold;">Uang Sejumlah</td>
+                    <td>:</td>
+                    <td>
+                        <div class="terbilang-cell"># {{ terbilang_text|e }} #</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold;">Untuk Pembayaran</td>
+                    <td>:</td>
+                    <td>
+                        {{ reference_text|safe }}
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width: 100%; margin-top: 10px; border-collapse: collapse;">
+                <tr>
+                    <td style="width: 50%; vertical-align: top;">
+                        <div style="font-size: 11px; color: #475569; margin-bottom: 4px;">Jumlah Nominal Pembayaran:</div>
+                        <div class="nominal-box">{{ amount_formatted|e }}</div>
+                    </td>
+                    <td style="width: 50%; text-align: center; vertical-align: top;">
+                        <p style="margin: 0 0 10px 0;">Luwuk, {{ receipt_date|e }}</p>
+                        <div style="height: 65px;"></div>
+                        <p style="margin: 0; font-weight: bold; text-decoration: underline; font-size: 12.5px;">Ferry Tatimu</p>
+                        <p style="margin: 2px 0 0 0; font-size: 11px;">Direktur</p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </body>
+    </html>

@@ -1,0 +1,1056 @@
+{% extends "layout/base.html" %}
+
+{% block title %}Invoice &amp; Tax Management{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/invoice_tax.css') }}">
+<div class="invoice-tax-page" data-payment-flow-version="soft-delete-1">
+<div class="page-header">
+    <div>
+        <div class="module-code">MODUL 3</div>
+        <h1>Invoice &amp; Tax Management</h1>
+        <p>Input invoice mengikuti sumber data BSS: master kontrak, PI, PO, WAN/SA, dan rincian transaksi.</p>
+    </div>
+</div>
+<div id="invoiceNotice" class="invoice-notice" role="alert" hidden></div>
+
+<section class="invoice-picker-card" aria-labelledby="invoicePickerTitle">
+    <div class="invoice-picker-heading">
+        <div>
+            <span class="invoice-step">LANGKAH 1</span>
+            <h2 id="invoicePickerTitle">Pilih Invoice Resmi</h2>
+            <p>Klik nomor invoice pada daftar untuk membuka detailnya. Nomor baru dapat diinput manual melalui Invoice Baru.</p>
+        </div>
+        {% if can_write %}<button type="button" id="newInvoiceButton">+ Invoice Baru</button>{% endif %}
+    </div>
+    <div class="invoice-lookup" aria-label="Cari invoice resmi">
+        <div class="invoice-combobox">
+            <label for="invoiceLookup">Cari Nomor Invoice, Kontrak, PI, atau Customer</label>
+            <input id="invoiceLookup" type="search" placeholder="Klik untuk melihat semua invoice, atau ketik pencarian..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="invoiceLookupResults">
+            <div id="invoiceLookupResults" class="invoice-options" role="listbox" hidden></div>
+        </div>
+        <button type="button" id="loadInvoiceButton">Buka Invoice</button>
+        <span id="lookupStatus" role="status"></span>
+    </div>
+    <p id="invoiceStatus" role="status">Memuat data invoice...</p>
+    <div class="invoice-picker-table" role="region" aria-label="Daftar invoice resmi" tabindex="0">
+        <table>
+            <thead><tr><th>Nomor Invoice</th><th>Kontrak</th><th>Customer</th><th>DPP</th><th>Status</th></tr></thead>
+            <tbody id="invoiceRows"></tbody>
+        </table>
+    </div>
+    <div id="invoicePagination" class="invoice-pagination" aria-label="Halaman daftar invoice"></div>
+</section>
+
+<div id="invoiceSelectionEmpty" class="invoice-selection-empty" role="status">
+    <span class="invoice-step">LANGKAH 2</span>
+    <h2>Belum ada invoice yang dibuka</h2>
+    <p>Pilih nomor invoice di atas untuk membuka detail dan tab pekerjaannya.{% if can_write %} Untuk data baru, klik <b>Invoice Baru</b> lalu isi Nomor Invoice Resmi secara manual.{% endif %}</p>
+</div>
+
+<div id="invoiceWorkspace" hidden>
+<div id="invoiceActiveSummary" class="invoice-active-summary">
+    <span id="invoiceActiveSummaryText" role="status"></span>
+    <div id="invoiceDocumentActions" class="invoice-document-actions" hidden>
+        <span>Dokumen resmi</span>
+        <a id="invoicePreviewLink" data-url-template="{{ url_for('navigation.invoice_official', invoice_id=0) }}" data-format="lengkap" href="#" target="_blank" rel="noopener" title="Cetak invoice dengan seluruh detail transaksi">Cetak Lengkap</a>
+        <a id="invoiceCompactPreviewLink" data-url-template="{{ url_for('navigation.invoice_official', invoice_id=0) }}" data-format="ringkas" href="#" target="_blank" rel="noopener" title="Cetak total PI dan lingkup pekerjaan">Cetak Ringkas</a>
+        <a id="invoiceDownloadLink" data-url-template="{{ url_for('navigation.invoice_official', invoice_id=0) }}" data-format="lengkap" href="#" download title="Unduh invoice lengkap sebagai HTML">Unduh Lengkap</a>
+        <a id="invoiceCompactDownloadLink" data-url-template="{{ url_for('navigation.invoice_official', invoice_id=0) }}" data-format="ringkas" href="#" download title="Unduh invoice ringkas sebagai HTML">Unduh Ringkas</a>
+        <a id="invoiceReceiptLink" data-url-template="{{ url_for('navigation.invoice_receipt', invoice_id=0) }}" href="#" target="_blank" rel="noopener" title="Buka dokumen untuk cetak atau simpan sebagai PDF">Lihat Kuitansi</a>
+        <a id="receiptDownloadLink" data-url-template="{{ url_for('navigation.invoice_receipt', invoice_id=0) }}" href="#" download title="Unduh HTML siap cetak sesuai BSS Project">Unduh Kuitansi</a>
+    </div>
+</div>
+<nav class="invoice-tabs" role="tablist" aria-label="Menu Invoice dan Pajak">
+    <button type="button" class="invoice-tab is-active" role="tab" id="tab-invoice" aria-controls="panel-invoice" aria-selected="true" data-tab="invoice">Invoice Resmi</button>
+    <button type="button" class="invoice-tab" role="tab" id="tab-tax" aria-controls="panel-tax" aria-selected="false" data-tab="tax">Faktur Pajak</button>
+    <button type="button" class="invoice-tab" role="tab" id="tab-payment" aria-controls="panel-payment" aria-selected="false" data-tab="payment">Pembayaran</button>
+    <button type="button" class="invoice-tab" role="tab" id="tab-archive" aria-controls="panel-archive" aria-selected="false" data-tab="archive">Arsip Dokumen</button>
+</nav>
+
+<section id="panel-invoice" class="invoice-panel" role="tabpanel" aria-labelledby="tab-invoice" data-tab-panel="invoice">
+<div class="placeholder-card" style="text-align:left;">
+    <h2>Input &amp; Kalkulasi Invoice Resmi</h2>
+    <p>Nilai pajak dihitung ulang di server saat preview dan penyimpanan.</p>
+    <form id="invoiceForm">
+        <div id="sourceStatus" style="margin-bottom:12px;color:#475569;">Memuat master kontrak...</div>
+        <div class="invoice-form-grid">
+            <input name="kontrak_id" type="hidden" value="1">
+            <label>Nomor Kontrak (Master PI)<select id="sourceContract" name="nomor_kontrak" required><option value="">-- Pilih Nomor Kontrak --</option></select></label>
+            <label>Nomor Invoice Resmi (input Accounting)<input name="nomor_invoice" required placeholder="Masukkan nomor invoice resmi"></label>
+            <label>Nomor PI (Master PI)<select id="sourcePi" name="pi_no" required disabled><option value="">-- Pilih Nomor PI --</option></select></label>
+            <label>Nomor PO<input id="sourcePo" name="nomor_po" readonly></label>
+            <label>Nomor SA/WAN (Transaksi)<select id="sourceWan" name="nomor_sa_wan" disabled><option value="">-- Semua / pilih WAN-SA --</option></select></label>
+            <label>Customer<input id="sourceCustomer" name="customer" readonly></label>
+            <label>NPWP Customer<input name="npwp_customer" placeholder="Diisi otomatis dari invoice sebelumnya"><small id="customerReuseHint" role="status">NPWP yang disimpan akan dipakai lagi untuk customer yang sama.</small></label>
+            <label class="invoice-wide-field">Alamat Customer<textarea id="sourceAddress" name="alamat_customer" rows="2" readonly></textarea></label>
+            <label class="invoice-full-field">Uraian Pekerjaan / Keterangan Sumber<textarea id="sourceDescription" name="keterangan" rows="2" readonly></textarea></label>
+            <label>Tanggal Invoice<input name="tanggal_invoice" type="date"></label>
+            <label>Jatuh Tempo<input name="jatuh_tempo" type="date"></label>
+            <label>Nilai Gross<input name="nilai_gross" type="number" min="0" step="0.01" value="0"></label>
+            <label>At Cost<input name="add_cost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Management Fee<input name="management_fee" type="number" min="0" step="0.01" value="0"></label>
+            <label>Tarif PPh (%)<input name="tarif_pph" type="number" min="0" max="100" step="0.5" value="0"></label>
+        </div>
+        <div id="sourcePreview" class="source-preview" hidden></div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin:16px 0;">
+            <label class="invoice-checkbox-label"><input id="useProfessional" type="checkbox" name="gunakan_professional_sum"> Professional Sum</label>
+            <label class="invoice-checkbox-label"><input id="useEstimated" type="checkbox" name="gunakan_estimasi_sum"> Estimated Sum (diskon 10%)</label>
+            <label class="invoice-checkbox-label"><input id="usePpn" type="checkbox" name="kena_ppn" checked> PPN 11%</label>
+            <label class="invoice-checkbox-label"><input id="usePph" type="checkbox" name="kena_pph"> Potong PPh</label>
+        </div>
+        <div id="taxSummary" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:14px;">
+            Isi nilai invoice lalu tekan <b>Hitung Pajak</b>.
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <button type="button" id="calculateInvoice">Hitung Pajak</button>
+            {% if can_write %}<button type="submit">Simpan Invoice</button><button type="button" id="saveAsInvoiceButton" hidden>Save As</button>{% else %}<span>Mode read-only</span>{% endif %}
+            <span id="formStatus" role="status"></span>
+        </div>
+    </form>
+</div>
+</section>
+
+<section id="panel-archive" class="invoice-panel" role="tabpanel" aria-labelledby="tab-archive" data-tab-panel="archive" hidden>
+<div class="placeholder-card" style="text-align:left;">
+    <h2>Arsip Dokumen Keuangan</h2>
+    <p>Upload invoice signed, faktur pajak, SSP, bukti potong, dan dokumen pendukung. Maksimal 15 MB per file.</p>
+    <form id="archiveForm" enctype="multipart/form-data">
+        <div class="invoice-form-grid">
+            <label>Nomor Invoice Resmi<select name="invoice_id" class="invoice-reference-select" required><option value="">-- Pilih invoice --</option></select></label>
+            <label>Jenis Dokumen
+                <select name="document_type"><option>INVOICE RESMI</option><option>FAKTUR PAJAK</option><option>SSP PPN</option><option>SSP PPH</option><option>BUKTI POTONG</option><option>DOKUMEN PENDUKUNG</option></select>
+            </label>
+            <label>File<input name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx,.doc" required></label>
+        </div>
+        <label>Catatan<textarea name="note" rows="2"></textarea></label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;">
+            {% if can_write %}<button type="submit">Upload Arsip</button>{% else %}<span>Mode read-only</span>{% endif %}
+            <span id="archiveStatus" role="status"></span>
+        </div>
+    </form>
+    <p id="archiveListStatus">Memuat arsip...</p>
+    <div id="archiveList"></div>
+</div>
+</section>
+
+<section id="panel-payment" class="invoice-panel" role="tabpanel" aria-labelledby="tab-payment" data-tab-panel="payment" hidden>
+<div class="placeholder-card" style="text-align:left;">
+    <h2>Tracking Pembayaran &amp; Aging</h2>
+    <p id="paymentSummary">Memuat kondisi pembayaran invoice aktif...</p>
+    <div class="payment-kpis" aria-label="Ringkasan pembayaran">
+        <div><span>Tagihan invoice</span><strong id="paymentCharge">—</strong></div>
+        <div><span>Diterima bank</span><strong id="paymentReceived">—</strong></div>
+        <div><span>Sisa piutang</span><strong id="paymentBalance">—</strong></div>
+        <div><span>Aging</span><strong id="paymentAging">—</strong></div>
+    </div>
+    <div id="paymentAlert" class="payment-alert" role="status" hidden></div>
+    <div id="paymentRecordInfo" class="payment-record-info">Memuat catatan tersimpan...</div>
+    <section class="payment-history" aria-labelledby="paymentHistoryTitle">
+        <div class="payment-history-heading">
+            <div>
+                <h3 id="paymentHistoryTitle">Riwayat Pembayaran</h3>
+                <p>Catat penerimaan sekali saja. Saldo, status, dan tanggal pelunasan dihitung otomatis.</p>
+            </div>
+        </div>
+        {% if can_write %}
+        <form id="paymentEventForm" class="payment-event-form">
+            <input name="invoice_id" type="hidden">
+            <label>Tanggal Pembayaran<input name="tanggal_pembayaran" type="date"></label>
+            <label>Diterima Bank<input name="nominal_diterima" type="number" min="0" step="0.01" value="0"></label>
+            <label>Tanggal Penyerahan<input name="tanggal_penyerahan" type="date"></label>
+            <details class="payment-event-extra">
+                <summary>Potongan pajak &amp; catatan (opsional)</summary>
+                <div class="payment-event-extra-grid">
+                    <label>Potongan PPh<input name="potongan_pph" type="number" min="0" step="0.01" value="0"></label>
+                    <label>Potongan PPN WAPU<input name="potongan_ppn_wapu" type="number" min="0" step="0.01" value="0"></label>
+                    <label class="payment-event-note">Catatan / Referensi Transfer<input name="catatan" maxlength="500" placeholder="Opsional"></label>
+                </div>
+                <div class="payment-suggestions">
+                    <button type="button" id="useInvoicePph" hidden></button>
+                    <button type="button" id="useInvoiceWapu" hidden></button>
+                </div>
+            </details>
+            <div id="paymentLiveSummary" class="payment-live-summary" role="status"></div>
+            <div class="payment-event-actions"><button type="submit">Simpan Tracking Pembayaran</button><span id="paymentEventStatus" role="status"></span></div>
+        </form>
+        {% endif %}
+        <p id="paymentHistoryStatus" role="status">Memuat riwayat...</p>
+        <div class="payment-history-table" role="region" aria-label="Riwayat pembayaran invoice" tabindex="0">
+            <table>
+                <thead><tr><th>Tanggal Bayar</th><th>Diterima Bank</th><th>Potongan PPh</th><th>PPN WAPU</th><th>Catatan</th><th id="paymentHistoryActionHead" hidden>Aksi</th></tr></thead>
+                <tbody id="paymentHistoryRows"><tr><td colspan="5">Memuat riwayat...</td></tr></tbody>
+            </table>
+        </div>
+        <details id="deletedPaymentHistory" class="payment-deleted-history" hidden>
+            <summary id="deletedPaymentSummary">Riwayat yang dihapus</summary>
+            <div class="payment-history-table" role="region" aria-label="Jejak riwayat pembayaran yang dihapus" tabindex="0">
+                <table>
+                    <thead><tr><th>Tanggal Bayar</th><th>Diterima Bank</th><th>Potongan PPh</th><th>PPN WAPU</th><th>Jejak penghapusan</th></tr></thead>
+                    <tbody id="deletedPaymentRows"></tbody>
+                </table>
+            </div>
+        </details>
+    </section>
+</div>
+</section>
+
+<section id="panel-tax" class="invoice-panel" role="tabpanel" aria-labelledby="tab-tax" data-tab-panel="tax" hidden>
+<div class="placeholder-card" style="text-align:left;">
+    <h2>Referensi Faktur Pajak</h2>
+    <p>Catat data yang diterbitkan di Coretax DJP. <a href="https://coretaxdjp.pajak.go.id/identityproviderportal/account/login" target="_blank" rel="noopener">Buka Coretax DJP</a></p>
+    <form id="taxForm">
+        <div class="invoice-form-grid">
+            <label>Nomor Invoice Resmi<select name="invoice_id" class="invoice-reference-select" required><option value="">-- Pilih invoice --</option></select></label>
+            <label>NSFP<input name="nsfp" required></label>
+            <label>Tanggal Faktur<input name="tanggal_fp" type="date"></label>
+            <label>Nilai DPP<input name="nilai_dpp" type="number" min="0" step="0.01" value="0"></label>
+            <label>NPWP Customer<input name="customer_npwp"></label>
+            <label>Nama Customer<input name="customer_name"></label>
+        </div>
+        <label>Keterangan<textarea name="keterangan" rows="2"></textarea></label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;">
+            {% if can_write %}<button type="submit">Simpan Referensi Pajak</button>{% else %}<span>Mode read-only</span>{% endif %}
+            <span id="taxStatus" role="status"></span>
+        </div>
+    </form>
+</div>
+</section>
+
+</div>
+<script>
+(() => {
+    const status = document.getElementById('invoiceStatus');
+    const rows = document.getElementById('invoiceRows');
+    const invoicePagination = document.getElementById('invoicePagination');
+    const rupiah = value => new Intl.NumberFormat('id-ID', {
+        style: 'currency', currency: 'IDR', maximumFractionDigits: 0
+    }).format(Number(value || 0));
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+    }[char]));
+    const invoiceNotice = document.getElementById('invoiceNotice');
+    const clearNotice = () => { invoiceNotice.hidden = true; invoiceNotice.textContent = ''; };
+    const reportError = (element, context, error) => {
+        const raw = String(error?.message || error || 'Terjadi kesalahan.');
+        const message = raw === 'Failed to fetch' ? 'Tidak dapat menghubungi server. Periksa koneksi lalu coba lagi.' : raw;
+        if (element) element.textContent = message;
+        invoiceNotice.textContent = `${context}: ${message}`;
+        invoiceNotice.hidden = false;
+    };
+    const parseApi = async response => {
+        let data;
+        try { data = await response.json(); }
+        catch {
+            throw new Error(`Server mengembalikan respons yang tidak dapat dibaca (HTTP ${response.status}). Periksa log server.`);
+        }
+        if (!data || typeof data !== 'object') {
+            throw new Error(`Respons server tidak sesuai format yang diharapkan (HTTP ${response.status}).`);
+        }
+        return {response, data};
+    };
+
+    const tabs = [...document.querySelectorAll('.invoice-tab')];
+    const panels = [...document.querySelectorAll('.invoice-panel')];
+    const workspace = document.getElementById('invoiceWorkspace');
+    const selectionEmpty = document.getElementById('invoiceSelectionEmpty');
+    const activeSummary = document.getElementById('invoiceActiveSummaryText');
+    const documentActions = document.getElementById('invoiceDocumentActions');
+    const activateTab = name => {
+        if (tabs.find(tab => tab.dataset.tab === name)?.disabled) return;
+        tabs.forEach(tab => {
+            const active = tab.dataset.tab === name;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
+        });
+        panels.forEach(panel => { panel.hidden = panel.dataset.tabPanel !== name; });
+    };
+    tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => activateTab(tab.dataset.tab));
+        tab.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const enabled = tabs.filter(item => !item.disabled);
+            const current = enabled.indexOf(tab);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? enabled.length - 1 :
+                (current + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length;
+            enabled[next].focus();
+            activateTab(enabled[next].dataset.tab);
+        });
+    });
+
+    const form = document.getElementById('invoiceForm');
+    const summary = document.getElementById('taxSummary');
+    const formStatus = document.getElementById('formStatus');
+    const sourceStatus = document.getElementById('sourceStatus');
+    const sourceContract = document.getElementById('sourceContract');
+    const sourcePi = document.getElementById('sourcePi');
+    const sourceWan = document.getElementById('sourceWan');
+    const sourcePo = document.getElementById('sourcePo');
+    const sourceCustomer = document.getElementById('sourceCustomer');
+    const sourceAddress = document.getElementById('sourceAddress');
+    const customerReuseHint = document.getElementById('customerReuseHint');
+    const sourceDescription = document.getElementById('sourceDescription');
+    const sourcePreview = document.getElementById('sourcePreview');
+    const invoiceLookup = document.getElementById('invoiceLookup');
+    const invoiceLookupResults = document.getElementById('invoiceLookupResults');
+    const lookupStatus = document.getElementById('lookupStatus');
+    const loadInvoiceButton = document.getElementById('loadInvoiceButton');
+    const saveAsInvoiceButton = document.getElementById('saveAsInvoiceButton');
+    const newInvoiceButton = document.getElementById('newInvoiceButton');
+    let activeInvoiceId = null;
+    let selectedInvoiceId = null;
+    let activeInvoiceData = null;
+    let invoiceCache = [];
+    let taxInvoiceId = null;
+    let highlightedOption = -1;
+    let invoicePage = 1;
+    const invoicePageSize = 10;
+    const showWorkspace = (item = null) => {
+        workspace.hidden = false;
+        selectionEmpty.hidden = true;
+        tabs.forEach(tab => { tab.disabled = !item && tab.dataset.tab !== 'invoice'; });
+        activeSummary.textContent = item
+            ? `Invoice aktif: ${item.nomor_invoice} · Kontrak ${item.nomor_kontrak || '-'} · PI ${item.pi_no || '-'}`
+            : 'Invoice Baru · Isi nomor resmi dan simpan invoice untuk membuka Faktur Pajak, Pembayaran, dan Arsip Dokumen.';
+        documentActions.hidden = !item || !activeInvoiceId;
+        if (!documentActions.hidden) {
+            documentActions.querySelectorAll('a[data-url-template]').forEach(link => {
+                const previewUrl = link.dataset.urlTemplate.replace(/0$/, encodeURIComponent(activeInvoiceId));
+                const params = new URLSearchParams();
+                if (link.dataset.format) params.set('format', link.dataset.format);
+                if (link.hasAttribute('download')) params.set('download', '1');
+                link.href = params.size ? `${previewUrl}?${params.toString()}` : previewUrl;
+            });
+        }
+        rows.querySelectorAll('tr[data-invoice-id]').forEach(row => {
+            const selected = String(row.dataset.invoiceId) === String(activeInvoiceId);
+            row.classList.toggle('is-selected', selected);
+            row.setAttribute('aria-selected', String(selected));
+        });
+        if (String(taxInvoiceId) !== String(activeInvoiceId)) {
+            document.getElementById('taxForm').reset();
+            taxInvoiceId = activeInvoiceId;
+        }
+        syncInvoiceReferences();
+        if (item) {
+            loadArchives().catch(error => reportError(archiveListStatus, 'Arsip dokumen', error));
+            loadPayments().catch(error => reportError(paymentSummary, 'Tracking pembayaran', error));
+        }
+        activateTab('invoice');
+    };
+    const setOptions = (element, items, placeholder) => {
+        element.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => {
+            const value = typeof item === 'string' ? item : (item.pi_no || item.nomor_kontrak || '');
+            const label = typeof item === 'string' ? item : `${item.pi_no || item.nomor_kontrak} — ${item.nomor_po || ''}`;
+            return `<option value="${esc(value)}">${esc(label)}</option>`;
+        }).join('');
+        element.disabled = items.length === 0;
+    };
+    const customerKey = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('id-ID');
+    const customerNpwpField = form.querySelector('[name="npwp_customer"]');
+    const clearSourceCustomer = () => {
+        sourceCustomer.value = '';
+        sourceAddress.value = '';
+        customerNpwpField.value = '';
+        customerReuseHint.textContent = 'NPWP yang disimpan akan dipakai lagi untuk customer yang sama.';
+    };
+    const reuseSavedCustomer = (source = {}) => {
+        const contract = String(source.nomor_kontrak || sourceContract.value || '').trim();
+        const pi = String(source.pi_no || sourcePi.value || '').trim();
+        if (!sourceCustomer.value && pi) {
+            const priorPi = invoiceCache.find(row => String(row.pi_no || '').trim() === pi &&
+                String(row.nomor_kontrak || '').trim() === contract && row.customer);
+            if (priorPi) sourceCustomer.value = priorPi.customer;
+        }
+        const key = customerKey(sourceCustomer.value);
+        if (!key) return;
+        const matches = invoiceCache.filter(row => customerKey(row.customer) === key);
+        if (!sourceAddress.value) sourceAddress.value = matches.find(row => row.alamat_customer)?.alamat_customer || '';
+        const knownNpwp = new Map();
+        matches.forEach(row => {
+            const value = String(row.npwp_customer || '').trim();
+            const npwpKey = value.replace(/\D/g, '') || customerKey(value);
+            if (value && !knownNpwp.has(npwpKey)) knownNpwp.set(npwpKey, value);
+        });
+        if (!customerNpwpField.value && knownNpwp.size === 1) {
+            customerNpwpField.value = [...knownNpwp.values()][0];
+            customerReuseHint.textContent = 'NPWP diisi otomatis dari invoice customer ini yang sudah tersimpan.';
+        } else if (!customerNpwpField.value && knownNpwp.size > 1) {
+            customerReuseHint.textContent = 'Ada beberapa NPWP untuk nama customer ini. Periksa dan isi yang benar.';
+        }
+    };
+    const loadSourceContracts = () => fetch('/api/modul-3/invoice-sources')
+        .then(parseApi)
+        .then(({response, data}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Master kontrak gagal dimuat.');
+            setOptions(sourceContract, data.data, '-- Pilih Nomor Kontrak --');
+            sourceStatus.textContent = `${data.total} nomor kontrak tersedia dari master PI.`;
+        });
+    const loadSourcePis = () => {
+        const contract = sourceContract.value;
+        setOptions(sourcePi, [], '-- Pilih Nomor PI --');
+        setOptions(sourceWan, [], '-- Pilih WAN/SA --');
+        if (!contract) return Promise.resolve();
+        return fetch(`/api/modul-3/invoice-sources?nomor_kontrak=${encodeURIComponent(contract)}`)
+            .then(parseApi)
+            .then(({response, data}) => {
+                if (!response.ok || !data.success) throw new Error(data.message || 'Master PI gagal dimuat.');
+                if (sourceContract.value !== contract) return;
+                setOptions(sourcePi, data.data, '-- Pilih Nomor PI --');
+                sourceStatus.textContent = `${data.total} nomor PI tersedia untuk kontrak ${contract}.`;
+            });
+    };
+    const loadSourceDetail = () => {
+        const contract = sourceContract.value;
+        const pi = sourcePi.value;
+        clearSourceCustomer();
+        sourcePreview.hidden = true;
+        if (!contract || !pi) return Promise.resolve();
+        return fetch(`/api/modul-3/invoice-sources?nomor_kontrak=${encodeURIComponent(contract)}&pi_no=${encodeURIComponent(pi)}`)
+            .then(parseApi)
+            .then(({response, data}) => {
+                if (!response.ok || !data.success) throw new Error(data.message || 'Detail sumber invoice gagal dimuat.');
+                if (sourceContract.value !== contract || sourcePi.value !== pi) return;
+                const item = data.data;
+                sourcePo.value = item.nomor_po || '';
+                sourceCustomer.value = item.customer || '';
+                sourceAddress.value = item.alamat_customer || '';
+                reuseSavedCustomer(item);
+                sourceDescription.value = item.keterangan || '';
+                document.querySelector('[name="nilai_gross"]').value = item.nilai_gross_sumber || 0;
+                setOptions(sourceWan, item.wan_sa_options || [], '-- Semua / pilih WAN-SA --');
+                const transactions = item.transactions || [];
+                const moneyOrDash = value => value === null || value === undefined || value === '' ? '—' : rupiah(value);
+                const quantity = value => {
+                    if (value === null || value === undefined || value === '') return '—';
+                    const numeric = Number(value);
+                    return Number.isFinite(numeric)
+                        ? new Intl.NumberFormat('id-ID', {maximumFractionDigits: 2}).format(numeric)
+                        : esc(value);
+                };
+                const lines = transactions.map((row, index) => `
+                    <tr><td class="source-line-number">${index + 1}</td>
+                        <td><strong>${esc(row.deskripsi_pekerjaan || row.deskripsi_po || 'Tanpa uraian')}</strong><small>${esc(row.kategori || 'Tanpa kategori')}</small></td>
+                        <td class="source-line-qty">${quantity(row.qty)} ${esc(row.unit || '')}</td>
+                        <td class="source-line-money">${moneyOrDash(row.harga_satuan)}</td>
+                        <td class="source-line-money">${moneyOrDash(row.total_harga)}</td></tr>`).join('');
+                sourcePreview.innerHTML = `<div class="source-preview-heading"><div><strong>Rincian transaksi BSS</strong><span>PI ${esc(item.pi_no)} · PO ${esc(item.nomor_po || '-')} · ${transactions.length} baris</span></div><strong>${rupiah(item.nilai_gross_sumber)}</strong></div>
+                    <div class="source-preview-table" role="region" aria-label="Rincian transaksi sumber BSS" tabindex="0"><table><thead><tr><th>No.</th><th>Uraian / Kategori</th><th>Qty / Satuan</th><th>Harga Satuan</th><th>Nilai</th></tr></thead><tbody>${lines || '<tr><td colspan="5">Tidak ada rincian transaksi.</td></tr>'}</tbody><tfoot><tr><th colspan="4">Total nilai transaksi</th><th>${rupiah(item.nilai_gross_sumber)}</th></tr></tfoot></table></div>`;
+                sourcePreview.hidden = false;
+                sourceStatus.textContent = `Sumber PI ${pi} aktif. Nilai transaksi dan metadata ditarik dari database BSS.`;
+            });
+    };
+    const setField = (name, value) => {
+        const field = form.querySelector(`[name="${name}"]`);
+        if (field) field.value = value ?? '';
+    };
+    const resetInvoiceMode = () => {
+        clearNotice();
+        activeInvoiceId = null;
+        activeInvoiceData = null;
+        selectedInvoiceId = null;
+        invoiceLookup.value = '';
+        invoiceLookupResults.hidden = true;
+        invoiceLookup.setAttribute('aria-expanded', 'false');
+        form.reset();
+        document.getElementById('usePpn').checked = true;
+        sourceContract.value = '';
+        setOptions(sourcePi, [], '-- Pilih Nomor PI --');
+        setOptions(sourceWan, [], '-- Semua / pilih WAN-SA --');
+        sourcePo.value = '';
+        clearSourceCustomer();
+        sourceDescription.value = '';
+        sourcePreview.hidden = true;
+        lookupStatus.textContent = 'Mode invoice baru.';
+        if (saveAsInvoiceButton) saveAsInvoiceButton.hidden = true;
+        formStatus.textContent = '';
+        showWorkspace();
+        form.querySelector('[name="nomor_invoice"]').focus();
+    };
+    const loadInvoiceForEdit = () => {
+        const exactMatch = invoiceCache.find(item =>
+            String(item.nomor_invoice || '').trim().toLocaleLowerCase('id-ID') === invoiceLookup.value.trim().toLocaleLowerCase('id-ID'));
+        const invoiceId = selectedInvoiceId || exactMatch?.id;
+        if (!invoiceId) {
+            reportError(lookupStatus, 'Buka invoice', 'Pilih nomor invoice dari daftar. Untuk nomor baru, gunakan Invoice Baru.');
+            return Promise.resolve();
+        }
+        clearNotice();
+        lookupStatus.textContent = 'Memuat invoice...';
+        return fetch(`/api/modul-3/invoices/${invoiceId}`)
+            .then(parseApi)
+            .then(({response, data}) => {
+                if (!response.ok || !data.success) throw new Error(data.message || 'Detail invoice gagal dimuat.');
+                const item = data.data;
+                activeInvoiceId = item.id;
+                activeInvoiceData = item;
+                selectedInvoiceId = item.id;
+                invoiceLookup.value = item.nomor_invoice || '';
+                showWorkspace(item);
+                sourceContract.value = item.nomor_kontrak || '';
+                return loadSourcePis().then(() => {
+                    sourcePi.value = item.pi_no || '';
+                    return loadSourceDetail();
+                }).catch(error => { reportError(sourceStatus, 'Sumber BSS', error); }).then(() => {
+                    setField('nomor_invoice', item.nomor_invoice);
+                    setField('nomor_sa_wan', item.nomor_sa_wan);
+                    setField('tanggal_invoice', item.tanggal_invoice);
+                    setField('jatuh_tempo', item.jatuh_tempo);
+                    setField('nilai_gross', item.nilai_gross);
+                    setField('add_cost', item.add_cost);
+                    setField('management_fee', item.management_fee);
+                    setField('tarif_pph', item.tarif_pph);
+                    setField('npwp_customer', item.npwp_customer);
+                    document.getElementById('useProfessional').checked = Boolean(Number(item.gunakan_professional_sum));
+                    document.getElementById('useEstimated').checked = Boolean(Number(item.gunakan_estimasi_sum));
+                    document.getElementById('usePpn').checked = Boolean(Number(item.kena_ppn));
+                    document.getElementById('usePph').checked = Boolean(Number(item.kena_pph));
+                    lookupStatus.textContent = `Invoice ${item.nomor_invoice} dibuka.`;
+                    syncInvoiceReferences();
+                    if (saveAsInvoiceButton) saveAsInvoiceButton.hidden = false;
+                    return calculate().catch(error => { reportError(formStatus, 'Kalkulasi invoice', error); });
+                });
+            })
+            .catch(error => { reportError(lookupStatus, 'Buka invoice', error); });
+    };
+    const renderInvoiceOptions = () => {
+        const term = invoiceLookup.value.trim().toLocaleLowerCase('id-ID');
+        const matches = invoiceCache.filter(item => [item.nomor_invoice, item.nomor_kontrak, item.pi_no, item.customer]
+            .some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term)));
+        highlightedOption = -1;
+        invoiceLookupResults.innerHTML = matches.length ? matches.map(item => `
+            <button type="button" class="invoice-option" role="option" data-invoice-id="${item.id}" aria-selected="false">
+                ${esc(item.nomor_invoice)}<small>Kontrak ${esc(item.nomor_kontrak || '-')} · PI ${esc(item.pi_no || '-')} · ${esc(item.customer || '-')}</small>
+            </button>`).join('') : '<div class="invoice-options-empty">Belum ada invoice yang cocok. Nomor baru dapat diisi manual pada formulir.</div>';
+        invoiceLookupResults.hidden = false;
+        invoiceLookup.setAttribute('aria-expanded', 'true');
+        lookupStatus.textContent = `${matches.length} invoice cocok dari ${invoiceCache.length} data tersimpan.`;
+        renderInvoiceRows(matches);
+    };
+    const chooseInvoice = option => {
+        const item = invoiceCache.find(row => String(row.id) === option.dataset.invoiceId);
+        if (!item) return;
+        selectedInvoiceId = item.id;
+        invoiceLookup.value = item.nomor_invoice;
+        invoiceLookupResults.hidden = true;
+        invoiceLookup.setAttribute('aria-expanded', 'false');
+        loadInvoiceForEdit().then(() => {
+            if (!workspace.hidden && String(activeInvoiceId) === String(item.id)) {
+                workspace.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }
+        });
+    };
+    const syncInvoiceReferences = () => {
+        const active = invoiceCache.find(item => String(item.id) === String(activeInvoiceId));
+        document.querySelectorAll('.invoice-reference-select').forEach(select => {
+            select.innerHTML = '<option value="">-- Pilih invoice --</option>' + (active
+                ? `<option value="${active.id}">${esc(active.nomor_invoice)} — ${esc(active.nomor_kontrak || '-')}</option>` : '');
+            if (active) select.value = String(active.id);
+        });
+        if (activeInvoiceData) {
+            const taxForm = document.getElementById('taxForm');
+            for (const [name, value] of Object.entries({
+                customer_name: activeInvoiceData.customer,
+                customer_npwp: activeInvoiceData.npwp_customer,
+                nilai_dpp: activeInvoiceData.nilai_dpp,
+            })) {
+                const field = taxForm.querySelector(`[name="${name}"]`);
+                if (field && (!field.value || (name === 'nilai_dpp' && Number(field.value) === 0)) &&
+                    value !== null && value !== undefined) field.value = value;
+            }
+        }
+    };
+    sourceContract.addEventListener('change', () => {
+        clearSourceCustomer();
+        sourcePreview.hidden = true;
+        loadSourcePis().catch(error => reportError(sourceStatus, 'Daftar PI', error));
+    });
+    sourcePi.addEventListener('change', () => loadSourceDetail().catch(error => reportError(sourceStatus, 'Rincian transaksi', error)));
+    invoiceLookup.addEventListener('focus', renderInvoiceOptions);
+    invoiceLookup.addEventListener('input', () => {
+        selectedInvoiceId = null;
+        invoicePage = 1;
+        renderInvoiceOptions();
+    });
+    invoiceLookup.addEventListener('keydown', event => {
+        const options = [...invoiceLookupResults.querySelectorAll('[role="option"]')];
+        if (event.key === 'Escape') {
+            invoiceLookupResults.hidden = true;
+            invoiceLookup.setAttribute('aria-expanded', 'false');
+            return;
+        }
+        if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) return;
+        if (!options.length) return;
+        event.preventDefault();
+        if (event.key === 'Enter') {
+            chooseInvoice(options[Math.max(highlightedOption, 0)]);
+            return;
+        }
+        highlightedOption = (highlightedOption + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+        options.forEach((option, index) => option.classList.toggle('is-highlighted', index === highlightedOption));
+        options[highlightedOption].scrollIntoView({block: 'nearest'});
+    });
+    invoiceLookupResults.addEventListener('click', event => {
+        const option = event.target.closest('[data-invoice-id]');
+        if (option) chooseInvoice(option);
+    });
+    rows.addEventListener('click', event => {
+        const option = event.target.closest('tr[data-invoice-id]');
+        if (option) chooseInvoice(option);
+    });
+    rows.addEventListener('keydown', event => {
+        if (!['Enter', ' '].includes(event.key)) return;
+        const option = event.target.closest('tr[data-invoice-id]');
+        if (!option) return;
+        event.preventDefault();
+        chooseInvoice(option);
+    });
+    invoicePagination.addEventListener('click', event => {
+        const button = event.target.closest('[data-page]');
+        if (!button) return;
+        const next = Number(button.dataset.page);
+        const term = invoiceLookup.value.trim().toLocaleLowerCase('id-ID');
+        const filtered = invoiceCache.filter(item => [item.nomor_invoice, item.nomor_kontrak, item.pi_no, item.customer]
+            .some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term)));
+        const pages = Math.max(1, Math.ceil(filtered.length / invoicePageSize));
+        if (next < 1 || next > pages) return;
+        invoicePage = next;
+        renderInvoiceRows(filtered);
+    });
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.invoice-combobox')) {
+            invoiceLookupResults.hidden = true;
+            invoiceLookup.setAttribute('aria-expanded', 'false');
+        }
+    });
+    if (loadInvoiceButton) loadInvoiceButton.addEventListener('click', () => loadInvoiceForEdit());
+    if (newInvoiceButton) newInvoiceButton.addEventListener('click', resetInvoiceMode);
+    loadSourceContracts().catch(error => reportError(sourceStatus, 'Daftar kontrak', error));
+    const formData = () => {
+        const data = Object.fromEntries(new FormData(form).entries());
+        data.gunakan_professional_sum = document.getElementById('useProfessional').checked;
+        data.gunakan_estimasi_sum = document.getElementById('useEstimated').checked;
+        data.kena_ppn = document.getElementById('usePpn').checked;
+        data.kena_pph = document.getElementById('usePph').checked;
+        return data;
+    };
+    const renderCalculation = data => {
+        summary.innerHTML = `
+            <div><b>Gross:</b> ${rupiah(data.nilai_gross)}</div>
+            <div><b>Diskon:</b> ${rupiah(data.diskon_nominal)}</div>
+            <div><b>DPP:</b> ${rupiah(data.nilai_dpp)}</div>
+            <div><b>PPN:</b> ${rupiah(data.ppn_nominal)}</div>
+            <div><b>PPh:</b> ${rupiah(data.pph_nominal)} (basis ${rupiah(data.basis_pph)})</div>
+            <div style="margin-top:6px;font-size:1.1em;"><b>Total Netto:</b> ${rupiah(data.total_netto)}</div>`;
+    };
+    const calculate = () => fetch('/api/modul-3/invoices/calculate', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(formData())
+    }).then(parseApi).then(({response, data}) => {
+        if (!response.ok || !data.success) throw new Error(data.message || 'Kalkulasi gagal.');
+        renderCalculation(data.data);
+        formStatus.textContent = 'Kalkulasi berhasil.';
+        return data.data;
+    });
+    document.getElementById('calculateInvoice').addEventListener('click', () => {
+        clearNotice();
+        calculate().catch(error => reportError(formStatus, 'Kalkulasi invoice', error));
+    });
+    {% if can_write %}
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        clearNotice();
+        formStatus.textContent = 'Menyimpan...';
+        const endpoint = activeInvoiceId ? `/api/modul-3/invoices/${activeInvoiceId}` : '/api/modul-3/invoices';
+        const method = activeInvoiceId ? 'PUT' : 'POST';
+        calculate().then(calculation => fetch(endpoint, {
+            method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(formData())
+        }).then(parseApi).then(({response, data}) => ({response, data, calculation}))).then(({response, data, calculation}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Penyimpanan gagal.');
+            const savedMessage = activeInvoiceId ? 'Invoice berhasil diperbarui.' : `Invoice tersimpan (ID ${data.data.id}).`;
+            activeInvoiceId = data.data?.id || activeInvoiceId;
+            selectedInvoiceId = activeInvoiceId;
+            invoiceLookup.value = form.querySelector('[name="nomor_invoice"]').value;
+            activeInvoiceData = {...formData(), ...calculation, id: activeInvoiceId,
+                nomor_invoice: invoiceLookup.value, customer: sourceCustomer.value};
+            invoiceCache = invoiceCache.filter(item => String(item.id) !== String(activeInvoiceId));
+            invoiceCache.unshift({id: activeInvoiceId, nomor_invoice: invoiceLookup.value,
+                nomor_kontrak: sourceContract.value, pi_no: sourcePi.value, customer: sourceCustomer.value,
+                alamat_customer: sourceAddress.value, npwp_customer: customerNpwpField.value});
+            showWorkspace({nomor_invoice: invoiceLookup.value, nomor_kontrak: sourceContract.value, pi_no: sourcePi.value});
+            if (saveAsInvoiceButton) saveAsInvoiceButton.hidden = false;
+            formStatus.textContent = savedMessage;
+            loadInvoices().catch(error => reportError(status, 'Perbarui daftar invoice', error));
+        }).catch(error => { reportError(formStatus, 'Simpan invoice', error); });
+    });
+    if (saveAsInvoiceButton) saveAsInvoiceButton.addEventListener('click', () => {
+        clearNotice();
+        if (!activeInvoiceId) {
+            reportError(lookupStatus, 'Save As invoice', 'Muat invoice terlebih dahulu untuk menggunakan Save As.');
+            return;
+        }
+        const newNumber = String(form.querySelector('[name="nomor_invoice"]').value || '').trim();
+        const sourceNumber = invoiceCache.find(item => String(item.id) === String(activeInvoiceId))?.nomor_invoice;
+        if (!newNumber || newNumber === sourceNumber) {
+            reportError(formStatus, 'Save As invoice', 'Save As memerlukan Nomor Invoice Resmi baru pada formulir.');
+            form.querySelector('[name="nomor_invoice"]').focus();
+            return;
+        }
+        formStatus.textContent = 'Membuat salinan invoice...';
+        calculate().then(calculation => fetch(`/api/modul-3/invoices/${activeInvoiceId}/save-as`, {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(formData())
+        }).then(parseApi).then(({response, data}) => ({response, data, calculation}))).then(({response, data, calculation}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Save As gagal.');
+            formStatus.textContent = `Invoice baru berhasil dibuat (ID ${data.data.id}).`;
+            activeInvoiceId = data.data.id;
+            selectedInvoiceId = data.data.id;
+            invoiceLookup.value = newNumber;
+            activeInvoiceData = {...formData(), ...calculation, id: activeInvoiceId,
+                nomor_invoice: newNumber, customer: sourceCustomer.value};
+            invoiceCache.unshift({id: activeInvoiceId, nomor_invoice: newNumber,
+                nomor_kontrak: sourceContract.value, pi_no: sourcePi.value, customer: sourceCustomer.value,
+                alamat_customer: sourceAddress.value, npwp_customer: customerNpwpField.value});
+            lookupStatus.textContent = `Mode edit invoice ${newNumber} (ID ${data.data.id}).`;
+            showWorkspace({nomor_invoice: newNumber, nomor_kontrak: sourceContract.value, pi_no: sourcePi.value});
+            loadInvoices().catch(error => reportError(status, 'Perbarui daftar invoice', error));
+        }).catch(error => { reportError(formStatus, 'Save As invoice', error); });
+    });
+    {% endif %}
+
+    {% if can_write %}
+    document.getElementById('taxForm').addEventListener('submit', event => {
+        event.preventDefault();
+        clearNotice();
+        const taxStatus = document.getElementById('taxStatus');
+        const payload = Object.fromEntries(new FormData(event.target).entries());
+        taxStatus.textContent = 'Menyimpan...';
+        fetch('/api/modul-3/tax-references', {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+        }).then(parseApi).then(({response, data}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal menyimpan referensi pajak.');
+            taxStatus.textContent = data.message;
+            event.target.reset();
+            syncInvoiceReferences();
+        }).catch(error => { reportError(taxStatus, 'Faktur pajak', error); });
+    });
+    {% endif %}
+
+    const archiveStatus = document.getElementById('archiveStatus');
+    const archiveListStatus = document.getElementById('archiveListStatus');
+    const archiveList = document.getElementById('archiveList');
+    const loadArchives = () => {
+        const requestedId = activeInvoiceId;
+        return fetch(`/api/modul-3/archives?invoice_id=${encodeURIComponent(requestedId)}`)
+        .then(parseApi).then(({response, data}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal memuat arsip.');
+            if (String(requestedId) !== String(activeInvoiceId)) return;
+            archiveListStatus.textContent = `${data.total} arsip aktif.`;
+            archiveList.innerHTML = data.data.length ? data.data.map(item => `
+                <div style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
+                    <b>${esc(item.document_type)}</b> — ${esc(item.original_filename)}<br>
+                    <small>Invoice: ${esc(item.nomor_invoice)} | ${esc(item.uploaded_at || '')}</small>
+                    <a style="margin-left:10px;" href="/api/modul-3/archives/${item.id}/download">Download</a>
+                </div>`).join('') : '<p>Belum ada arsip.</p>';
+        });
+    };
+    {% if can_write %}
+    document.getElementById('archiveForm').addEventListener('submit', event => {
+        event.preventDefault();
+        clearNotice();
+        archiveStatus.textContent = 'Mengunggah...';
+        fetch('/api/modul-3/archives', {method:'POST', body:new FormData(event.target)})
+            .then(parseApi).then(({response, data}) => {
+                if (!response.ok || !data.success) throw new Error(data.message || 'Upload gagal.');
+                archiveStatus.textContent = data.message;
+                event.target.reset();
+                syncInvoiceReferences();
+                loadArchives().catch(error => reportError(archiveListStatus, 'Muat ulang arsip', error));
+            }).catch(error => { reportError(archiveStatus, 'Upload arsip', error); });
+    });
+    {% endif %}
+    const paymentSummary = document.getElementById('paymentSummary');
+    const paymentAlert = document.getElementById('paymentAlert');
+    const paymentRecordInfo = document.getElementById('paymentRecordInfo');
+    const paymentLiveSummary = document.getElementById('paymentLiveSummary');
+    const paymentEventForm = document.getElementById('paymentEventForm');
+    const paymentEventStatus = document.getElementById('paymentEventStatus');
+    const paymentHistoryStatus = document.getElementById('paymentHistoryStatus');
+    const paymentHistoryRows = document.getElementById('paymentHistoryRows');
+    const paymentHistoryActionHead = document.getElementById('paymentHistoryActionHead');
+    const deletedPaymentHistory = document.getElementById('deletedPaymentHistory');
+    const deletedPaymentSummary = document.getElementById('deletedPaymentSummary');
+    const deletedPaymentRows = document.getElementById('deletedPaymentRows');
+    const useInvoicePph = document.getElementById('useInvoicePph');
+    const useInvoiceWapu = document.getElementById('useInvoiceWapu');
+    const paymentEndpointError = error => /Endpoint tidak ditemukan|HTTP 404/.test(String(error?.message || error))
+        ? 'GET/POST /api/modul-3/payment-events mengembalikan 404 dari aplikasi yang sedang berjalan. Periksa apakah rute terdaftar pada proses Flask aktif dan restart aplikasi setelah deploy routes.py; ini bukan error migrasi database.'
+        : error;
+    const paymentField = name => paymentEventForm?.querySelector(`[name="${name}"]`);
+    let paymentSnapshot = {charge: 0, received: 0, pph: 0, wapu: 0};
+    let paymentHistoryReady = false;
+    let paymentSaving = false;
+    const syncPaymentSubmit = () => {
+        if (paymentEventForm) paymentEventForm.querySelector('button[type="submit"]').disabled = !paymentHistoryReady || paymentSaving;
+    };
+    const invoiceCharge = item => {
+        if (!item) return 0;
+        const gross = Number(item.nilai_dpp || 0) + Number(item.ppn_nominal || 0);
+        return gross > 0 ? gross : Number(item.total_netto || 0);
+    };
+    const paymentAgingLabel = (balance, dueDate, charge) => {
+        if (charge <= 0) return 'TAGIHAN BELUM ADA';
+        if (balance <= 0.01) return 'LUNAS';
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        if (dueDate && dueDate < today) return 'OVERDUE';
+        return dueDate ? 'BELUM JATUH TEMPO' : 'JATUH TEMPO BELUM ADA';
+    };
+    const renderPaymentPreview = () => {
+        if (!paymentEventForm) return;
+        const received = Number(paymentField('nominal_diterima').value || 0);
+        const pph = Number(paymentField('potongan_pph').value || 0);
+        const wapu = Number(paymentField('potongan_ppn_wapu').value || 0);
+        const total = received + pph + wapu;
+        const balance = Math.max(0, paymentSnapshot.charge - paymentSnapshot.received - paymentSnapshot.pph - paymentSnapshot.wapu - total);
+        paymentLiveSummary.textContent = total > 0
+            ? `Pembayaran baru ${rupiah(total)} · perkiraan sisa ${rupiah(balance)}. Tanggal pelunasan dan aging dihitung otomatis.`
+            : 'Tanpa nominal pembayaran, tombol simpan hanya memperbarui tanggal penyerahan.';
+    };
+    if (paymentEventForm) {
+        paymentEventForm.addEventListener('input', renderPaymentPreview);
+        paymentEventForm.addEventListener('change', renderPaymentPreview);
+    }
+    if (useInvoicePph) useInvoicePph.addEventListener('click', () => {
+        paymentField('potongan_pph').value = Number(activeInvoiceData?.pph_nominal || 0).toFixed(2);
+        renderPaymentPreview();
+    });
+    if (useInvoiceWapu) useInvoiceWapu.addEventListener('click', () => {
+        paymentField('potongan_ppn_wapu').value = Number(activeInvoiceData?.ppn_nominal || 0).toFixed(2);
+        renderPaymentPreview();
+    });
+    const paymentToday = () => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    };
+    const paymentDateLabel = value => {
+        const parts = String(value || '').slice(0, 10).split('-');
+        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : '-';
+    };
+    const loadPaymentEvents = requestedId => fetch(`/api/modul-3/payment-events?invoice_id=${encodeURIComponent(requestedId)}`)
+        .then(parseApi)
+        .then(({response, data}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal memuat riwayat pembayaran.');
+            if (String(requestedId) !== String(activeInvoiceId)) return;
+            const events = (data.data || []).filter(item => !item.deleted_at);
+            const deletedEvents = (data.data || []).filter(item => item.deleted_at);
+            const opening = data.opening || {};
+            const openingBank = Number(opening.nominal_diterima || 0);
+            const openingPph = Number(opening.potongan_pph || 0);
+            const openingWapu = Number(opening.potongan_ppn_wapu || 0);
+            const hasOpening = openingBank + openingPph + openingWapu > 0.01;
+            paymentHistoryActionHead.hidden = !data.can_delete;
+            paymentHistoryRows.innerHTML = events.map(item => `
+                <tr><td>${paymentDateLabel(item.tanggal_pembayaran)}</td>
+                    <td>${rupiah(item.nominal_diterima)}</td>
+                    <td>${rupiah(item.potongan_pph)}</td>
+                    <td>${rupiah(item.potongan_ppn_wapu)}</td>
+                    <td>${esc(item.catatan || '—')}${item.created_at ? `<br><small>Dicatat ${esc(String(item.created_at).replace('T', ' ').slice(0, 16))}${item.created_by ? ` oleh ${esc(item.created_by)}` : ''}</small>` : ''}</td>
+                    ${data.can_delete ? `<td><button type="button" class="payment-delete-button" data-payment-event-id="${Number(item.id)}" aria-label="Hapus pembayaran tanggal ${paymentDateLabel(item.tanggal_pembayaran)}">Hapus</button></td>` : ''}</tr>`).join('')
+                + (hasOpening ? `<tr class="is-legacy"><td>Data lama · tanggal transfer tidak tersedia</td><td>${rupiah(openingBank)}</td><td>${rupiah(openingPph)}</td><td>${rupiah(openingWapu)}</td><td>${data.legacy_paid_date ? `Tanggal pelunasan tercatat ${paymentDateLabel(data.legacy_paid_date)}; bukan rincian transfer.` : 'Total tersimpan sebelum fitur riwayat tersedia.'}</td>${data.can_delete ? '<td>—</td>' : ''}</tr>` : '')
+                || `<tr><td colspan="${data.can_delete ? 6 : 5}">Belum ada pembayaran yang dicatat untuk invoice ini.</td></tr>`;
+            deletedPaymentHistory.hidden = !data.can_delete || deletedEvents.length === 0;
+            deletedPaymentSummary.textContent = `Lihat ${deletedEvents.length} riwayat yang dihapus`;
+            deletedPaymentRows.innerHTML = deletedEvents.map(item => `
+                <tr><td>${paymentDateLabel(item.tanggal_pembayaran)}</td>
+                    <td>${rupiah(item.nominal_diterima)}</td><td>${rupiah(item.potongan_pph)}</td>
+                    <td>${rupiah(item.potongan_ppn_wapu)}</td>
+                    <td><strong>Dihapus</strong> ${esc(String(item.deleted_at || '').replace('T', ' ').slice(0, 16))}<br>
+                        oleh ${esc(item.deleted_by || 'Tidak diketahui')} (${esc(item.deleted_role || '-')})</td></tr>`).join('');
+            paymentHistoryStatus.textContent = `${events.length} pembayaran aktif${hasOpening ? ' · ada saldo pembayaran lama tanpa rincian tanggal' : ''}${data.can_delete && deletedEvents.length ? ` · ${deletedEvents.length} dihapus` : ''}.${data.reconciliation_warning ? ' Total ringkasan berbeda dari riwayat; perlu verifikasi.' : ''}`;
+            paymentHistoryReady = true;
+            syncPaymentSubmit();
+            return true;
+        }).catch(error => {
+            if (String(requestedId) === String(activeInvoiceId)) {
+                reportError(paymentHistoryStatus, 'Riwayat pembayaran', paymentEndpointError(error));
+                paymentHistoryActionHead.hidden = true;
+                paymentHistoryRows.innerHTML = '<tr><td colspan="5">Riwayat tidak tersedia; penyimpanan ditahan agar tidak ada catatan tanpa verifikasi.</td></tr>';
+                deletedPaymentHistory.hidden = true;
+                paymentHistoryReady = false;
+                syncPaymentSubmit();
+            }
+            return false;
+        });
+    const loadPayments = () => {
+        const requestedId = activeInvoiceId;
+        const invoice = activeInvoiceData;
+        paymentHistoryReady = false;
+        syncPaymentSubmit();
+        if (paymentEventForm) {
+            paymentEventForm.reset();
+            paymentEventForm.querySelector('[name="invoice_id"]').value = requestedId || '';
+            paymentEventForm.querySelector('[name="tanggal_pembayaran"]').value = paymentToday();
+        }
+        paymentHistoryStatus.textContent = 'Memuat riwayat...';
+        paymentHistoryRows.innerHTML = '<tr><td colspan="5">Memuat riwayat...</td></tr>';
+        const pphSuggestion = Number(invoice?.pph_nominal || 0);
+        const ppnSuggestion = Number(invoice?.ppn_nominal || 0);
+        if (useInvoicePph) {
+            useInvoicePph.hidden = pphSuggestion <= 0;
+            useInvoicePph.textContent = `Gunakan PPh invoice (${rupiah(pphSuggestion)})`;
+        }
+        if (useInvoiceWapu) {
+            useInvoiceWapu.hidden = ppnSuggestion <= 0;
+            useInvoiceWapu.textContent = `Gunakan PPN sebagai WAPU (${rupiah(ppnSuggestion)})`;
+        }
+        if (paymentEventStatus) paymentEventStatus.textContent = '';
+        paymentAlert.hidden = true;
+        paymentSummary.textContent = `Invoice ${invoice?.nomor_invoice || '-'} · ${invoice?.customer || '-'} · jatuh tempo ${invoice?.jatuh_tempo || 'belum ada'}.`;
+        paymentRecordInfo.textContent = 'Memuat catatan pembayaran tersimpan...';
+        paymentSnapshot = {charge: invoiceCharge(invoice), received: 0, pph: 0, wapu: 0};
+        renderPaymentPreview();
+        return fetch(`/api/modul-3/payment-monitoring?invoice_id=${encodeURIComponent(requestedId)}`)
+        .then(parseApi)
+        .then(({response, data}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal memuat monitoring pembayaran.');
+            if (String(requestedId) !== String(activeInvoiceId)) return;
+            const items = data.data.filter(item => String(item.invoice_id) === String(requestedId));
+            const latest = items.sort((a, b) => Number(b.id) - Number(a.id))[0];
+            const charge = latest ? Number(latest.nominal_tagihan || 0) : invoiceCharge(invoice);
+            const received = Number(latest?.nominal_dibayar || 0);
+            const pph = Number(latest?.potongan_pph || 0);
+            const wapu = Number(latest?.potongan_ppn_wapu || 0);
+            const deductions = pph + wapu;
+            const balance = Math.max(0, charge - received - deductions);
+            const dueDate = String(latest?.tanggal_jatuh_tempo || invoice?.jatuh_tempo || '').slice(0, 10);
+            paymentSnapshot = {charge, received, pph, wapu};
+            document.getElementById('paymentCharge').textContent = rupiah(charge);
+            document.getElementById('paymentReceived').textContent = rupiah(received);
+            document.getElementById('paymentBalance').textContent = rupiah(balance);
+            document.getElementById('paymentAging').textContent = latest?.aging_status || paymentAgingLabel(balance, dueDate, charge);
+            paymentRecordInfo.textContent = latest
+                ? `Catatan tersimpan: ${latest.status_pembayaran} · terakhir diperbarui ${latest.updated_at || '-'}${items.length > 1 ? ` · ${items.length} rekaman legacy; menampilkan yang terbaru` : ''}`
+                : 'Belum ada catatan pembayaran. Nilai tagihan dan jatuh tempo telah diambil dari invoice aktif.';
+            if (paymentEventForm) paymentField('tanggal_penyerahan').value = String(latest?.tanggal_penyerahan || '').slice(0, 10);
+            const warnings = [];
+            if (latest?.tagihan_dari_invoice) warnings.push('Tagihan tersimpan sebelumnya bernilai 0; ringkasan ini memakai nilai dari invoice resmi.');
+            if (latest?.tagihan_berbeda_invoice) warnings.push(`Tagihan tercatat ${rupiah(latest.nominal_tagihan_tercatat)} berbeda dari total invoice ${rupiah(latest.tagihan_invoice_bruto)}. Verifikasi sebelum menyimpan ulang.`);
+            if (latest?.perlu_verifikasi) warnings.push('Status tercatat DIBAYAR, tetapi nominal penerimaan dan potongan belum menutup tagihan. Periksa data aktual.');
+            if (!charge) warnings.push('Nilai tagihan invoice belum tersedia. Lengkapi invoice sebelum menyimpan tracking.');
+            paymentAlert.hidden = warnings.length === 0;
+            paymentAlert.textContent = warnings.join(' ');
+            renderPaymentPreview();
+            return loadPaymentEvents(requestedId);
+        });
+    };
+    paymentHistoryRows.addEventListener('click', event => {
+        const button = event.target.closest('button[data-payment-event-id]');
+        if (!button || paymentSaving) return;
+        const eventId = Number(button.dataset.paymentEventId);
+        if (!Number.isSafeInteger(eventId) || eventId <= 0) return;
+        if (!window.confirm('Hapus pembayaran ini dari perhitungan saldo? Catatan dan identitas penghapus tetap tersimpan untuk audit.')) return;
+        clearNotice();
+        paymentSaving = true;
+        syncPaymentSubmit();
+        button.disabled = true;
+        fetch(`/api/modul-3/payment-events/${eventId}`, {method: 'DELETE'})
+            .then(parseApi)
+            .then(({response, data}) => {
+                if (!response.ok || !data.success) throw new Error(data.message || 'Gagal menghapus riwayat pembayaran.');
+                return loadPayments().then(loaded => {
+                    if (loaded === false) throw new Error('Riwayat telah dihapus, tetapi daftar belum dapat dimuat ulang.');
+                    paymentHistoryStatus.textContent = data.message;
+                });
+            })
+            .catch(error => reportError(paymentHistoryStatus, 'Hapus riwayat pembayaran', paymentEndpointError(error)))
+            .finally(() => { paymentSaving = false; syncPaymentSubmit(); button.disabled = false; });
+    });
+    {% if can_write %}
+    paymentEventForm.addEventListener('submit', event => {
+        event.preventDefault();
+        clearNotice();
+        if (!paymentHistoryReady) {
+            reportError(paymentEventStatus, 'Tracking pembayaran', 'Riwayat belum dapat dimuat. Penyimpanan ditahan agar pembayaran tidak tercatat tanpa verifikasi.');
+            return;
+        }
+        if (!activeInvoiceId) {
+            reportError(paymentEventStatus, 'Tracking pembayaran', 'Pilih invoice terlebih dahulu.');
+            return;
+        }
+        const payload = Object.fromEntries(new FormData(paymentEventForm).entries());
+        const total = Number(payload.nominal_diterima || 0) + Number(payload.potongan_pph || 0) + Number(payload.potongan_ppn_wapu || 0);
+        if (total > 0 && !payload.tanggal_pembayaran) {
+            reportError(paymentEventStatus, 'Tracking pembayaran', 'Tanggal pembayaran wajib diisi jika ada penerimaan atau potongan.');
+            paymentField('tanggal_pembayaran').focus();
+            return;
+        }
+        if (total <= 0 && !payload.tanggal_penyerahan) {
+            reportError(paymentEventStatus, 'Tracking pembayaran', 'Isi nominal pembayaran atau tanggal penyerahan.');
+            return;
+        }
+        paymentSaving = true;
+        syncPaymentSubmit();
+        paymentEventStatus.textContent = 'Menyimpan tracking...';
+        let saved = false;
+        fetch('/api/modul-3/payment-events', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
+            .then(parseApi)
+            .then(({response, data}) => {
+                if (!response.ok || !data.success) throw new Error(data.message || 'Gagal menyimpan tracking.');
+                saved = true;
+                return loadPayments().then(loaded => {
+                    if (loaded === false) throw new Error('Pembayaran berhasil disimpan, tetapi riwayat belum dapat dimuat ulang.');
+                    paymentEventStatus.textContent = data.message;
+                });
+            }).catch(error => { reportError(paymentEventStatus, saved ? 'Pembayaran tersimpan; periksa riwayat' : 'Tracking pembayaran', paymentEndpointError(error)); })
+            .finally(() => { paymentSaving = false; syncPaymentSubmit(); });
+    });
+    {% endif %}
+    const renderInvoiceRows = items => {
+        const pages = Math.max(1, Math.ceil(items.length / invoicePageSize));
+        invoicePage = Math.min(Math.max(1, invoicePage), pages);
+        const offset = (invoicePage - 1) * invoicePageSize;
+        rows.innerHTML = items.length ? items.slice(offset, offset + invoicePageSize).map(invoice => `
+            <tr data-invoice-id="${invoice.id}" tabindex="0" class="${String(invoice.id) === String(activeInvoiceId) ? 'is-selected' : ''}" aria-selected="${String(invoice.id) === String(activeInvoiceId)}" aria-label="Buka invoice ${esc(invoice.nomor_invoice)}">
+                <td class="invoice-number">${esc(invoice.nomor_invoice)}</td>
+                <td>${esc(invoice.nomor_kontrak || invoice.kontrak_id)}</td>
+                <td>${esc(invoice.customer || '-')}</td>
+                <td class="invoice-amount">${rupiah(invoice.nilai_dpp)}</td>
+                <td>${esc(invoice.status_invoice)}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="invoice-table-empty">Belum ada invoice yang cocok. Gunakan Invoice Baru untuk input manual.</td></tr>';
+        if (items.length <= invoicePageSize) {
+            invoicePagination.hidden = true;
+            invoicePagination.innerHTML = '';
+            return;
+        }
+        invoicePagination.hidden = false;
+        let from = Math.max(1, invoicePage - 3);
+        const to = Math.min(pages, from + 6);
+        from = Math.max(1, to - 6);
+        const buttons = [`<button type="button" data-page="${invoicePage - 1}" ${invoicePage === 1 ? 'disabled' : ''} aria-label="Halaman sebelumnya">‹</button>`];
+        for (let page = from; page <= to; page++) {
+            buttons.push(`<button type="button" data-page="${page}" ${page === invoicePage ? 'class="is-current" aria-current="page"' : ''}>${page}</button>`);
+        }
+        buttons.push(`<button type="button" data-page="${invoicePage + 1}" ${invoicePage === pages ? 'disabled' : ''} aria-label="Halaman berikutnya">›</button>`);
+        invoicePagination.innerHTML = `<span>Menampilkan ${offset + 1}–${Math.min(offset + invoicePageSize, items.length)} dari ${items.length} invoice</span><div class="invoice-page-buttons">${buttons.join('')}</div>`;
+    };
+    const loadInvoices = () => fetch('/api/modul-3/invoices')
+        .then(parseApi)
+        .then(({response, data}) => {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal memuat invoice.');
+            invoiceCache = data.data;
+            syncInvoiceReferences();
+            if (sourcePi.value && !customerNpwpField.value) reuseSavedCustomer();
+            status.textContent = `${data.total} invoice ditemukan.`;
+            if (!activeInvoiceId) lookupStatus.textContent = `${data.total} nomor invoice tersedia. Pilih dari tabel atau kolom pencarian.`;
+            if (!invoiceLookupResults.hidden) renderInvoiceOptions();
+            else renderInvoiceRows(invoiceCache);
+        });
+
+    loadInvoices().catch(error => {
+        reportError(status, 'Daftar invoice', error);
+    });
+})();
+</script>
+</div>
+{% endblock %}

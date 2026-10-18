@@ -1,0 +1,1154 @@
+import streamlit as st
+import pandas as pd
+import os
+import html
+from datetime import datetime, timedelta, date
+import streamlit.components.v1 as components
+import base64
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+# Import modul kuitansi
+try:
+    from modul_keuangan.modul_kuitansi import tampilkan_kuitansi
+except ImportError:
+    try:
+        from modul_kuitansi import tampilkan_kuitansi
+    except ImportError as e:
+        def tampilkan_kuitansi(transaksi_list):
+            st.error(f"Gagal memuat modul kuitansi: {e}")
+
+# --- FORMATTING EXCEL PROFESIONAL (HIJAU MUDA + BORDER + ZEBRA + AUTO-FIT TANPA TERPOTONG) ---
+def terapkan_format_excel_profesional(worksheet, df):
+    if df.empty: return
+    
+    header_fill = PatternFill(start_color="A7F3D0", end_color="A7F3D0", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="000000")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    
+    zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+    
+    thin_border = Border(
+        left=Side(style='thin', color='CBD5E1'), 
+        right=Side(style='thin', color='CBD5E1'),
+        top=Side(style='thin', color='CBD5E1'), 
+        bottom=Side(style='thin', color='CBD5E1')
+    )
+
+    max_col_letter = worksheet.cell(row=1, column=len(df.columns)).column_letter
+    worksheet.auto_filter.ref = f"A1:{max_col_letter}{len(df) + 1}"
+
+    for col_idx in range(1, len(df.columns) + 1):
+        cell = worksheet.cell(row=1, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_align
+        cell.border = thin_border
+        worksheet.row_dimensions[1].height = 30
+
+    for row_idx in range(2, len(df) + 2):
+        row_fill = zebra_fill if row_idx % 2 == 0 else white_fill
+        worksheet.row_dimensions[row_idx].height = 24
+        for col_idx in range(1, len(df.columns) + 1):
+            cell = worksheet.cell(row=row_idx, column=col_idx)
+            cell.fill = row_fill
+            cell.border = thin_border
+            cell.font = Font(name="Calibri", size=10, color="000000")
+            cell.number_format = '@'
+            cell.alignment = Alignment(vertical="center", horizontal="left", wrap_text=False)
+
+    for col in worksheet.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            val_str = str(cell.value or '')
+            if len(val_str) > max_len: 
+                max_len = len(val_str)
+        worksheet.column_dimensions[col_letter].width = min(max(max_len + 6, 22), 65)
+
+def sort_pi_key(pi_str):
+    try:
+        parts = str(pi_str).split('/')
+        if parts:
+            digits = "".join([c for c in parts[0] if c.isdigit()])
+            return int(digits) if digits else 0
+    except:
+        pass
+    return 0
+
+def bersih_angka(val):
+    if val is None:
+        return ""
+    s = str(val).strip()
+    if s.endswith(".0"):
+        s = s[:-2]
+    if s.lower() == "nan":
+        return ""
+    return s
+
+def format_nomor_bersih(val):
+    if val is None:
+        return ""
+    s = str(val).strip()
+    if s.endswith(".0"):
+        s = s[:-2]
+    if s.lower() == "nan" or s == "-":
+        return "-"
+    return s
+
+def parse_harga_presisi(val):
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        val_f = float(val)
+        while val_f > 1_000_000_000_000:
+            val_f = val_f / 10.0
+        return val_f
+        
+    s = str(val).strip()
+    if not s or s.lower() == 'nan':
+        return 0.0
+    
+    s = s.replace("Rp", "").strip()
+    
+    if "." in s and "," in s:
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif "," in s and "." not in s:
+        if s.count(",") == 1 and len(s.split(",")[1]) <= 2:
+            s = s.replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif "." in s and "," not in s:
+        parts = s.split(".")
+        if len(parts) > 2:
+            s = s.replace(".", "")
+        elif len(parts) == 2 and len(parts[1]) > 2:
+            s = s.replace(".", "")
+            
+    try:
+        res = float(s)
+        while res > 1_000_000_000_000:
+            res = res / 10.0
+        return res
+    except:
+        s_final = "".join([c for c in s if c.isdigit() or c == '.' or c == ','])
+        s_final = s_final.replace(".", "").replace(",", ".")
+        try:
+            res = float(s_final)
+            while res > 1_000_000_000_000:
+                res = res / 10.0
+            return res
+        except:
+            return 0.0
+
+def get_image_base64(uploaded_file):
+    if uploaded_file is not None:
+        bytes_data = uploaded_file.getvalue()
+        encoded = base64.b64encode(bytes_data).decode()
+        file_type = uploaded_file.type.split("/")[-1]
+        return f"data:image/{file_type};base64,{encoded}"
+    return None
+
+def tampilkan_billing_tax(transaksi_list, menu_pilihan):
+    # Deteksi Hak Akses Role (Manajemen / Direksi)
+    current_role_user = str(st.session_state.get("current_role", "")).strip().lower()
+    is_management = current_role_user in ["management", "direksi"]
+
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin:0; font-size: 20px;">💰 Modul 3: Invoice, Tax & Kuitansi Management (Accounting Department)</h3>
+            <p style="margin:4px 0 0 0; font-size: 12px; color: #34d399;">Panel khusus pengelolaan tagihan resmi, perhitungan pajak (PPN & PPh berbasis Management Fee / Estimasi Sum), dan pencetakan dokumen keuangan terpusat.</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    if is_management:
+        st.info("🔒 **Mode Direksi (Read-Only):** Anda masuk sebagai Direksi/Management. Seluruh data, formulir pratinjau, dan rekapitulasi dapat ditinjau dan dicetak secara transparan, namun aksi simpan, ubah, atau hapus data dikunci.")
+
+    DIR_DATABASE = "database_penyimpanan_aman"
+    if not os.path.exists(DIR_DATABASE):
+        os.makedirs(DIR_DATABASE)
+
+    EXCEL_BILLING = os.path.join(DIR_DATABASE, "database_billing_tax.xlsx")
+    EXCEL_NPWP = os.path.join(DIR_DATABASE, "database_npwp_customer.xlsx")
+
+    PATH_LOGO_BSS = os.path.join(DIR_DATABASE, "persistent_logo_bss.png")
+    PATH_LOGO_ISO = os.path.join(DIR_DATABASE, "persistent_logo_iso.png")
+    PATH_TTD_DIR = os.path.join(DIR_DATABASE, "persistent_ttd_direktur.png")
+
+    def muat_data_billing():
+        if os.path.exists(EXCEL_BILLING):
+            try:
+                df = pd.read_excel(EXCEL_BILLING, engine='openpyxl')
+                if df is not None and not df.empty:
+                    df = df.dropna(how='all')
+                    return df.to_dict(orient="records")
+            except:
+                pass
+        return []
+
+    def simpan_data_billing(data_list):
+        if is_management:
+            st.warning("⚠️ Akses ditolak: Akun Direksi berada dalam mode Read-Only.")
+            return
+        df_baru = pd.DataFrame(data_list)
+        try:
+            with pd.ExcelWriter(EXCEL_BILLING, engine='openpyxl') as writer:
+                df_baru.to_excel(writer, index=False, sheet_name="Database_Billing")
+                terapkan_format_excel_profesional(writer.sheets["Database_Billing"], df_baru)
+        except Exception as e:
+            st.error(f"⚠️ Error saat menyimpan Excel: {e}")
+        st.session_state["db_billing"] = data_list
+
+    def muat_database_npwp():
+        if os.path.exists(EXCEL_NPWP):
+            try:
+                df = pd.read_excel(EXCEL_NPWP, engine='openpyxl')
+                if df is not None and not df.empty:
+                    return df.to_dict(orient="records")
+            except:
+                pass
+        return [
+            {"Customer": "JOB Pertamina - Medco E&P Tomori Sulawesi", "NPWP": "002.796.802.3-081.000"}
+        ]
+
+    if "db_billing" not in st.session_state:
+        st.session_state["db_billing"] = muat_data_billing()
+
+    if "db_npwp" not in st.session_state:
+        st.session_state["db_npwp"] = muat_database_npwp()
+
+    # --- MENU 1: INPUT DATA INVOICE RESMI ---
+    if menu_pilihan == "Input Data Invoice Resmi":
+        st.markdown("#### 📝 Lembar Input & Manajemen Invoice Resmi")
+
+        billing_records = st.session_state["db_billing"]
+        
+        list_invoice_tersimpan = sorted(
+            list(dict.fromkeys([str(item.get("Nomor Invoice Resmi", "")) for item in billing_records if item.get("Nomor Invoice Resmi")])),
+            key=sort_pi_key,
+            reverse=True
+        )
+
+        opsi_panggil_invoice = ["-- Buat Invoice Baru (Formulir Kosong) --"] + list_invoice_tersimpan
+
+        col_pi1, col_pi2, col_pi_btn = st.columns([2.5, 2, 1])
+        with col_pi1:
+            pilihan_inv_panggil = st.selectbox("🔄 Panggil Ulang Berdasarkan Nomor Invoice Resmi:", opsi_panggil_invoice, key="select_panggil_inv_resmi")
+        with col_pi2:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            st.info("Pilih nomor invoice untuk edit / save as.")
+        with col_pi_btn:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("📥 Panggil", key="btn_panggil_inv_resmi"):
+                if pilihan_inv_panggil == "-- Buat Invoice Baru (Formulir Kosong) --":
+                    st.session_state["edit_billing_idx"] = None
+                    if "last_saved_billing_record" in st.session_state:
+                        del st.session_state["last_saved_billing_record"]
+                else:
+                    for idx, item in enumerate(billing_records):
+                        if str(item.get("Nomor Invoice Resmi")) == pilihan_inv_panggil:
+                            st.session_state["edit_billing_idx"] = idx
+                            st.session_state["last_saved_billing_record"] = item
+                            break
+                st.rerun()
+
+        data_edit_aktif = {}
+        active_billing_idx = st.session_state.get("edit_billing_idx", None)
+        is_mode_edit = False
+        if active_billing_idx is not None and active_billing_idx < len(billing_records):
+            data_edit_aktif = billing_records[active_billing_idx]
+            is_mode_edit = True
+            st.success(f"📋 **Mode Edit Aktif (Data Tersimpan Modul 3):** Memuat data Invoice `{data_edit_aktif.get('Nomor Invoice Resmi')}`")
+
+        target_kontrak_val = data_edit_aktif.get("Kontrak No.", "") if is_mode_edit else ""
+        target_sawanan_val = data_edit_aktif.get("Nomor SA / WAN", "") if is_mode_edit else ""
+        target_pi_val = data_edit_aktif.get("PI No.", "") if is_mode_edit else ""
+        target_po_val = data_edit_aktif.get("Nomor PO", "") if is_mode_edit else ""
+
+        wan_sudah_di_invoice = set()
+        for idx_b, b_item in enumerate(billing_records):
+            if is_mode_edit and idx_b == active_billing_idx:
+                continue
+            w_val = format_nomor_bersih(b_item.get("Nomor SA / WAN", ""))
+            if w_val and w_val != "-":
+                wan_sudah_di_invoice.add(w_val)
+
+        valid_transaksi_list = []
+        for t in transaksi_list:
+            wan_num = bersih_angka(t.get("Nomor WAN / SA", ""))
+            if wan_num and wan_num != "-" and wan_num.lower() != "nan":
+                if wan_num not in wan_sudah_di_invoice:
+                    valid_transaksi_list.append(t)
+
+        if is_mode_edit and target_sawanan_val:
+            for t in transaksi_list:
+                w_num = bersih_angka(t.get("Nomor WAN / SA", ""))
+                if w_num == target_sawanan_val and t not in valid_transaksi_list:
+                    valid_transaksi_list.append(t)
+
+        if not valid_transaksi_list and not is_mode_edit:
+            st.warning("⚠️ Semua Nomor WAN / SA yang tersedia sudah dibuatkan invoice resminya.")
+            return
+
+        list_sawanan_valid = sorted(list(dict.fromkeys([str(t.get("Nomor WAN / SA")) for t in valid_transaksi_list if t.get("Nomor WAN / SA")])))
+        if is_mode_edit and target_sawanan_val and target_sawanan_val not in list_sawanan_valid:
+            list_sawanan_valid.append(target_sawanan_val)
+
+        idx_sawanan_def = 0
+        if str(target_sawanan_val) in list_sawanan_valid:
+            idx_sawanan_def = list_sawanan_valid.index(str(target_sawanan_val))
+
+        st.markdown("---")
+        st.markdown("##### 🔍 Saringan Hierarki Data Sumber (Nomor WAN / SA $\rightarrow$ Nomor PI & PO, dengan Kontrak Otomatis)")
+        
+        col_h1, col_h2 = st.columns(2)
+        with col_h1:
+            selected_sawanan_m3 = st.selectbox("1️⃣ Pilih Nomor WAN / SA (Indikator Utama):", list_sawanan_valid if list_sawanan_valid else [target_sawanan_val], index=idx_sawanan_def if list_sawanan_valid else 0, key="m3_sel_sawanan", disabled=is_management)
+
+        last_selected_wan = st.session_state.get("m3_last_wan_tracked", "")
+        if last_selected_wan != selected_sawanan_m3:
+            st.session_state["m3_last_wan_tracked"] = selected_sawanan_m3
+            st.session_state["m3_pi_index_reset"] = 0
+
+        filtered_by_sawanan = [t for t in valid_transaksi_list if str(t.get("Nomor WAN / SA")) == str(selected_sawanan_m3)]
+        auto_kontrak_val = filtered_by_sawanan[0].get("Nomor Kontrak", target_kontrak_val) if filtered_by_sawanan else target_kontrak_val
+        selected_kontrak_m3 = auto_kontrak_val
+
+        raw_list_pi_m3 = list(dict.fromkeys([str(t.get("PI No.")) for t in filtered_by_sawanan if t.get("PI No.")]))
+        list_pi_m3 = sorted(raw_list_pi_m3, key=sort_pi_key, reverse=True)
+        
+        if is_mode_edit and target_pi_val and target_pi_val not in list_pi_m3:
+            list_pi_m3.append(target_pi_val)
+
+        idx_pi_def = st.session_state.get("m3_pi_index_reset", 0)
+        if is_mode_edit and target_pi_val in list_pi_m3:
+            idx_pi_def = list_pi_m3.index(str(target_pi_val))
+
+        with col_h2:
+            selected_pi_m3 = st.selectbox("2️⃣ Pilih Nomor Proforma Invoice (PI):", list_pi_m3 if list_pi_m3 else [target_pi_val], index=idx_pi_def if idx_pi_def < len(list_pi_m3) else 0, key="m3_sel_pi", disabled=is_management)
+
+        matched_transaksi = [t for t in filtered_by_sawanan if str(t.get("PI No.")) == str(selected_pi_m3)]
+        selected_po_m3 = matched_transaksi[0].get("Nomor PO", target_po_val) if matched_transaksi else target_po_val
+
+        gross_subtotal_m2 = 0.0
+        for t in matched_transaksi:
+            q_val = parse_harga_presisi(t.get("Qty", 0))
+            h_val = parse_harga_presisi(t.get("Harga Satuan", 0))
+            gross_subtotal_m2 += (q_val * h_val)
+
+        if is_mode_edit:
+            customer_default = data_edit_aktif.get("Customer", "")
+            alamat_default = data_edit_aktif.get("Alamat Customer", "")
+            bank_string_dinamis = data_edit_aktif.get("Informasi Bank", "<b>Bank Name :</b> BANK RAKYAT INDONESIA (PERSERO) Tbk.<br><b>Branch :</b> Cabang Luwuk<br><b>Account No :</b> 0167 0167 8888 303<br><b>Account Name :</b> PT. BANGGAI SENTRAL SULAWESI")
+            deskripsi_default = data_edit_aktif.get("Keterangan Invoice", "")
+            is_prof_sum_default = bool(data_edit_aktif.get("Gunakan Professional Sum", False))
+            is_estimasi_sum_default = bool(data_edit_aktif.get("Gunakan Estimasi Sum", False))
+            At_cost_default = float(data_edit_aktif.get("At Cost", 0.0) or 0.0)
+            mgmt_fee_default = float(data_edit_aktif.get("Management Fee", 0.0) or 0.0)
+        else:
+            customer_default = matched_transaksi[0].get("Ditujukan Kepada", "") if matched_transaksi else ""
+            alamat_default = matched_transaksi[0].get("Alamat Pihak Pertama", "") if matched_transaksi else ""
+            if matched_transaksi:
+                t_data = matched_transaksi[0]
+                b_nama = t_data.get("Nama Bank", "BANK RAKYAT INDONESIA (PERSERO) Tbk.")
+                b_pemilik = t_data.get("Atas Nama Rekening", "PT. BANGGAI SENTRAL SULAWESI")
+                b_cabang = t_data.get("Cabang Bank", "Cabang Luwuk")
+                b_rekening = t_data.get("Nomor Rekening", "0167 0167 8888 303")
+                bank_string_dinamis = f"<b>Bank Name :</b> {b_nama}<br><b>Branch :</b> {b_cabang}<br><b>Account No :</b> {b_rekening}<br><b>Account Name :</b> {b_pemilik}"
+            else:
+                bank_string_dinamis = "<b>Bank Name :</b> BANK RAKYAT INDONESIA (PERSERO) Tbk.<br><b>Branch :</b> Cabang Luwuk<br><b>Account No :</b> 0167 0167 8888 303<br><b>Account Name :</b> PT. BANGGAI SENTRAL SULAWESI"
+            
+            deskripsi_default = matched_transaksi[0].get("Deskripsi PO", "") if matched_transaksi else ""
+            
+            is_prof_sum_default = False
+            is_estimasi_sum_default = False
+            if matched_transaksi and any("professional" in str(t.get("Kategori", "")).lower() or "provisional" in str(t.get("Kategori", "")).lower() for t in matched_transaksi):
+                is_prof_sum_default = True
+            if matched_transaksi and any("estimated" in str(t.get("Kategori", "")).lower() or "estimasi" in str(t.get("Kategori", "")).lower() for t in matched_transaksi):
+                is_estimasi_sum_default = True
+
+            At_cost_default = 0.0
+            mgmt_fee_default = 0.0
+
+        st.info(f"📌 **Kontrak Otomatis Terikat:** `{selected_kontrak_m3}`")
+
+        with st.form("form_input_billing_resmi"):
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                st.markdown(f"**WAN / SA Terpilih:** `{selected_sawanan_m3}`")
+                st.markdown(f"**PI Rujukan Terpilih:** `{selected_pi_m3}`")
+                st.markdown(f"**Nomor PO Otomatis Terikat:** `{selected_po_m3}`")
+                customer_name = st.text_input("Customer / Klien", value=customer_default, disabled=is_management)
+                alamat_customer = st.text_area("Alamat Klien", value=alamat_default, height=75, disabled=is_management)
+                
+                npwp_records = st.session_state["db_npwp"]
+                existing_npwp = next((n.get("NPWP") for n in npwp_records if n.get("Customer") == customer_name), "002.796.802.3-081.000")
+                saved_npwp = str(data_edit_aktif.get("NPWP Customer", existing_npwp)) if is_mode_edit else existing_npwp
+                nomor_npwp = st.text_input("Nomor NPWP Customer", value=saved_npwp, disabled=is_management)
+
+            with col_b2:
+                nomor_invoice_resmi = st.text_input("Nomor Invoice Resmi (Diberikan Accounting)", value=str(data_edit_aktif.get("Nomor Invoice Resmi", "")) if is_mode_edit else "", disabled=is_management)
+                
+                tgl_inv_val = datetime.today().date()
+                if is_mode_edit and data_edit_aktif.get("Tanggal Invoice"):
+                    try:
+                        tgl_inv_val = datetime.strptime(str(data_edit_aktif.get("Tanggal Invoice")), "%Y-%m-%d").date()
+                    except:
+                        pass
+                tanggal_invoice = st.date_input("Tanggal Invoice", value=tgl_inv_val, disabled=is_management)
+
+                due_date_val = datetime.today().date() + timedelta(days=30)
+                if is_mode_edit and data_edit_aktif.get("Jatuh Tempo"):
+                    try:
+                        due_date_val = datetime.strptime(str(data_edit_aktif.get("Jatuh Tempo")), "%Y-%m-%d").date()
+                    except:
+                        pass
+                tanggal_jatuh_tempo = st.date_input("Tanggal Jatuh Tempo (Due Date)", value=due_date_val, disabled=is_management)
+
+            st.markdown("---")
+            st.markdown("#### 💼 Pengaturan Khusus Metode (Professional Sum & Estimasi Sum / Diskon)")
+            
+            col_met1, col_met2 = st.columns(2)
+            with col_met1:
+                gunakan_prof_sum = st.checkbox("Professional Sum (At Cost & Management Fee 15%)", value=is_prof_sum_default, disabled=is_management)
+            with col_met2:
+                gunakan_estimasi_sum = st.checkbox("Estimasi Sum (Skema Diskon 10% ESTIMATED SUM)", value=is_estimasi_sum_default, disabled=is_management)
+            
+            input_At_cost = 0.0
+            input_mgmt_fee = 0.0
+            if gunakan_prof_sum:
+                def_ac = At_cost_default if At_cost_default > 0 else gross_subtotal_m2
+                def_mf = mgmt_fee_default if mgmt_fee_default > 0 else (def_ac * 0.15)
+
+                col_ps1, col_ps2 = st.columns(2)
+                with col_ps1:
+                    input_At_cost = st.number_input("Nilai At Cost (Murni, Rp)", min_value=0.0, value=float(def_ac), step=1000.0, format="%.2f", disabled=is_management)
+                with col_ps2:
+                    input_mgmt_fee = st.number_input("Nilai Management Fee 15% (Rp)", min_value=0.0, value=float(def_mf), step=1000.0, format="%.2f", disabled=is_management)
+                
+                gross_tagihan_akhir = input_At_cost + input_mgmt_fee
+                diskon_nominal_akhir = 0.0
+                dpp_invoice_akhir = gross_tagihan_akhir
+            elif gunakan_estimasi_sum:
+                gross_tagihan_akhir = gross_subtotal_m2
+                diskon_nominal_akhir = gross_tagihan_akhir * 0.10
+                dpp_invoice_akhir = gross_tagihan_akhir - diskon_nominal_akhir
+            else:
+                gross_tagihan_akhir = gross_subtotal_m2
+                diskon_nominal_akhir = 0.0
+                dpp_invoice_akhir = gross_tagihan_akhir
+
+            st.markdown("---")
+            keterangan_invoice_resmi = st.text_area("📝 Deskripsi Keterangan Invoice Utama:", value=deskripsi_default, height=90, disabled=is_management)
+
+            st.markdown("---")
+            st.markdown("#### 🧮 Kalkulasi Otomatis Pajak (PPN 11% & PPh Dibulatkan)")
+
+            def_kena_ppn = bool(data_edit_aktif.get("Kena PPN", True)) if is_mode_edit else True
+            def_kena_pph = bool(data_edit_aktif.get("Kena PPh", True)) if is_mode_edit else True
+            def_tarif_pph = float(data_edit_aktif.get("Tarif PPh", 2.0)) if is_mode_edit else 2.0
+
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                kena_ppn = st.checkbox("Kenakan PPN (11%)", value=def_kena_ppn, disabled=is_management)
+            with col_p2:
+                kena_pph = st.checkbox("Potong PPh (2% / 1.5% - PPh 23/22)", value=def_kena_pph, disabled=is_management)
+            with col_p3:
+                persen_pph = st.number_input("Tarif PPh (%)", min_value=0.0, max_value=10.0, value=def_tarif_pph, step=0.5, disabled=is_management)
+
+            # PEMBULATAN STANDAR BISNIS & MATEMATIKA
+            ppn_nominal = round(dpp_invoice_akhir * 0.11) if kena_ppn else 0.0
+            base_pph = input_mgmt_fee if gunakan_prof_sum else dpp_invoice_akhir
+            pph_nominal = round(base_pph * (persen_pph / 100.0)) if kena_pph else 0.0
+
+            total_pembayaran_netto = round(dpp_invoice_akhir + ppn_nominal - pph_nominal)
+
+            st.markdown(f"""
+                * **Tagihan Kotor (Gross Subtotal):** Rp {gross_tagihan_akhir:,.2f}
+                * **Potongan Diskon (10%):** ( Rp {diskon_nominal_akhir:,.2f} )
+                * **Dasar Pengenaan Pajak (DPP):** **Rp {dpp_invoice_akhir:,.2f}**
+                * **Nilai PPN (11% Dibulatkan):** Rp {ppn_nominal:,.0f}
+                * **Potongan PPh ({persen_pph}% Dibulatkan):** ( Rp {pph_nominal:,.0f} )
+                * **Total Netto Diterima (Dibulatkan):** **Rp {total_pembayaran_netto:,.0f}**
+            """.replace(",", "X").replace(".", ",").replace("X", "."))
+
+            st.markdown("---")
+            
+            if not is_management:
+                col_bt1, col_bt2, col_bt3 = st.columns(3)
+                with col_bt1:
+                    submit_simpan_baru = st.form_submit_button("💾 Simpan Data Baru")
+                with col_bt2:
+                    submit_save_as = st.form_submit_button("📥 Save As (Buat Invoice Baru)")
+                with col_bt3:
+                    submit_update = st.form_submit_button("📝 Update Data Ini")
+            else:
+                submit_simpan_baru, submit_save_as, submit_update = False, False, False
+                st.info("ℹ️ Tombol aksi simpan/update dinonaktifkan untuk akun Direksi (Read-Only).")
+
+            if submit_simpan_baru or submit_save_as or submit_update:
+                if not nomor_invoice_resmi:
+                    st.error("⚠️ Nomor Invoice Resmi wajib diisi!")
+                elif not selected_pi_m3:
+                    st.error("⚠️ Silakan pilih Nomor Proforma Invoice (PI) rujukan!")
+                else:
+                    waktu_aksi = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                    item_billing_baru = {
+                        "Nomor Invoice Resmi": nomor_invoice_resmi,
+                        "PI No.": selected_pi_m3,
+                        "Kontrak No.": selected_kontrak_m3,
+                        "Nomor PO": selected_po_m3,
+                        "Nomor SA / WAN": format_nomor_bersih(selected_sawanan_m3),
+                        "Customer": customer_name,
+                        "Alamat Customer": alamat_customer,
+                        "NPWP Customer": nomor_npwp,
+                        "Tanggal Invoice": str(tanggal_invoice),
+                        "Jatuh Tempo": str(tanggal_jatuh_tempo),
+                        "Keterangan Invoice": keterangan_invoice_resmi,
+                        "Informasi Bank": bank_string_dinamis,
+                        "Nilai Gross (Bruto)": gross_tagihan_akhir,
+                        "Diskon Nominal (10%)": diskon_nominal_akhir,
+                        "Nilai Invoice": dpp_invoice_akhir,
+                        "Gunakan Professional Sum": 1 if gunakan_prof_sum else 0,
+                        "Gunakan Estimasi Sum": 1 if gunakan_estimasi_sum else 0,
+                        "At Cost": input_At_cost if gunakan_prof_sum else 0.0,
+                        "Management Fee": input_mgmt_fee if gunakan_prof_sum else 0.0,
+                        "PPN Nominal": ppn_nominal,
+                        "PPh Nominal": pph_nominal,
+                        "Total Netto": total_pembayaran_netto,
+                        "Kena PPN": kena_ppn,
+                        "Kena PPh": kena_pph,
+                        "Tarif PPh": persen_pph,
+                        "Update Terakhir": waktu_aksi
+                    }
+
+                    current_billing = muat_data_billing()
+                    if submit_update and active_billing_idx is not None and active_billing_idx < len(current_billing):
+                        current_billing[active_billing_idx] = item_billing_baru
+                        simpan_data_billing(current_billing)
+                        st.session_state["last_saved_billing_record"] = item_billing_baru
+                        st.success("✨ Data Invoice & Pajak berhasil di-update!")
+                    elif submit_save_as or submit_simpan_baru:
+                        current_billing.append(item_billing_baru)
+                        simpan_data_billing(current_billing)
+                        st.session_state["last_saved_billing_record"] = item_billing_baru
+                        st.success("🎉 Data Invoice & Pajak baru berhasil disimpan!")
+                        st.session_state["edit_billing_idx"] = None
+
+    # --- MENU 2: PRATINJAU, CETAK & DOWNLOAD PDF INVOICE ---
+    elif menu_pilihan == "Pratinjau, Cetak & Download PDF Invoice":
+        st.markdown("#### 🖨️ Pratinjau, Cetak & Download Dokumen Keuangan Resmi")
+        
+        billing_records = muat_data_billing()
+        if not billing_records:
+            st.warning("⚠️ Belum ada data invoice resmi tersimpan di Modul 3.")
+        else:
+            list_inv_resmi = sorted(
+                list(dict.fromkeys([str(item.get("Nomor Invoice Resmi")) for item in billing_records if item.get("Nomor Invoice Resmi")])),
+                key=sort_pi_key,
+                reverse=True
+            )
+
+            col_sel_jenis, col_ctrl1 = st.columns([1.5, 2.5])
+            with col_sel_jenis:
+                jenis_dok_terpilih = st.selectbox("📄 Pilih Jenis Dokumen:", ["Invoice & Tax Billing", "Kuitansi Pembayaran"], key="select_jenis_dok_m3")
+            with col_ctrl1:
+                selected_inv_preview = st.selectbox("🔄 Panggil Ulang Nomor Invoice Disimpan:", list_inv_resmi, key="preview_panggil_inv")
+
+            st.markdown("---")
+
+            selected_record = next((item for item in billing_records if str(item.get("Nomor Invoice Resmi")) == str(selected_inv_preview)), None)
+
+            if jenis_dok_terpilih == "Kuitansi Pembayaran":
+                st.markdown("##### 🧾 Pratinjau Kuitansi Berdasarkan Invoice Terpilih")
+                if selected_record:
+                    pi_rujukan = selected_record.get("PI No.")
+                    matched_tx_kuitansi = [t.copy() for t in transaksi_list if str(t.get("PI No.")) == str(pi_rujukan)]
+                    if not matched_tx_kuitansi and transaksi_list:
+                        matched_tx_kuitansi = [transaksi_list[0].copy()]
+                    elif not matched_tx_kuitansi:
+                        matched_tx_kuitansi = [{}]
+
+                    netto_resmi = round(float(selected_record.get("Total Netto", 0.0) or 0.0))
+                    for item_kui in matched_tx_kuitansi:
+                        item_kui["Total Harga"] = netto_resmi
+                        item_kui["TOTAL"] = netto_resmi
+                        item_kui["Total Amount"] = netto_resmi
+                        item_kui["Invoice No."] = selected_record.get("Nomor Invoice Resmi")
+                        item_kui["Nomor PO"] = selected_record.get("Nomor PO")
+                        item_kui["WAN / SA Nomor"] = selected_record.get("Nomor SA / WAN")
+                        item_kui["Ditujukan Kepada"] = selected_record.get("Customer")
+                        item_kui["Invoice Date"] = selected_record.get("Tanggal Invoice")
+
+                    tampilkan_kuitansi(matched_tx_kuitansi)
+                else:
+                    tampilkan_kuitansi(transaksi_list)
+
+            else:
+                format_cetak_invoice = st.radio(
+                    "Pilih format cetak invoice:",
+                    [
+                        "Lengkap — seluruh detail transaksi",
+                        "Ringkas — total PI & lingkup pekerjaan",
+                    ],
+                    horizontal=True,
+                    key="format_cetak_invoice_master",
+                )
+                cetak_ringkas = format_cetak_invoice.startswith("Ringkas")
+
+                with st.expander("🖼️ Pengaturan Permanen Logo Kop Surat & Tanda Tangan Direktur", expanded=False):
+                    if is_management:
+                        st.info("ℹ️ Akun Direksi dapat melihat pengaturan logo, namun upload gambar dibatasi.")
+                    else:
+                        st.info("💡 Logo dan Tanda Tangan yang di-upload di sini akan tersimpan secara permanen dan otomatis dipakai untuk semua invoice berikutnya tanpa perlu upload ulang.")
+                    
+                    col_ul1, col_ul2, col_ul3 = st.columns(3)
+                    with col_ul1:
+                        uploaded_logo_bss = st.file_uploader("Upload Logo BSS Baru (Kiri)", type=["png", "jpg", "jpeg"], key="logo_bss_upload", disabled=is_management)
+                        if uploaded_logo_bss is not None and not is_management:
+                            with open(PATH_LOGO_BSS, "wb") as f:
+                                f.write(uploaded_logo_bss.getbuffer())
+                    with col_ul2:
+                        uploaded_logo_iso = st.file_uploader("Upload Logo ISO Baru (Kanan)", type=["png", "jpg", "jpeg"], key="logo_iso_upload", disabled=is_management)
+                        if uploaded_logo_iso is not None and not is_management:
+                            with open(PATH_LOGO_ISO, "wb") as f:
+                                f.write(uploaded_logo_iso.getbuffer())
+                    with col_ul3:
+                        uploaded_ttd_dir = st.file_uploader("Upload TTD Direktur Baru (Ferry Tatimu)", type=["png", "jpg", "jpeg"], key="ttd_direktur_upload", disabled=is_management)
+                        if uploaded_ttd_dir is not None and not is_management:
+                            with open(PATH_TTD_DIR, "wb") as f:
+                                f.write(uploaded_ttd_dir.getbuffer())
+
+                    if (os.path.exists(PATH_LOGO_BSS) or os.path.exists(PATH_LOGO_ISO) or os.path.exists(PATH_TTD_DIR)) and not is_management:
+                        if st.button("🗑️ Hapus / Reset Semua Logo & TTD Tersimpan"):
+                            for p in [PATH_LOGO_BSS, PATH_LOGO_ISO, PATH_TTD_DIR]:
+                                if os.path.exists(p):
+                                    os.remove(p)
+                            st.success("✅ Berhasil mereset semua gambar tersimpan!")
+                            st.rerun()
+
+                def load_persistent_image_base64(path_file):
+                    if os.path.exists(path_file):
+                        try:
+                            with open(path_file, "rb") as image_file:
+                                encoded = base64.b64encode(image_file.read()).decode()
+                                ext = path_file.split(".")[-1].lower()
+                                mime = "image/png" if ext == "png" else "image/jpeg"
+                                return f"data:{mime};base64,{encoded}"
+                        except:
+                            pass
+                    return None
+
+                persistent_logo_bss_b64 = load_persistent_image_base64(PATH_LOGO_BSS)
+                persistent_logo_iso_b64 = load_persistent_image_base64(PATH_LOGO_ISO)
+                persistent_ttd_dir_b64 = load_persistent_image_base64(PATH_TTD_DIR)
+
+                if selected_record:
+                    # AMAN DARI ERROR NAN KARENA DIBUNGKUS VALIDASI PD.NOTNULL / FLOAT SAFETY
+                    raw_inv = selected_record.get('Nilai Invoice', 0)
+                    val_inv = round(float(raw_inv)) if pd.notnull(raw_inv) and str(raw_inv).strip() != '' and str(raw_inv).lower() != 'nan' else 0
+
+                    raw_ppn = selected_record.get('PPN Nominal', 0)
+                    val_ppn = round(float(raw_ppn)) if pd.notnull(raw_ppn) and str(raw_ppn).strip() != '' and str(raw_ppn).lower() != 'nan' else 0
+
+                    raw_pph = selected_record.get('PPh Nominal', 0)
+                    val_pph = round(float(raw_pph)) if pd.notnull(raw_pph) and str(raw_pph).strip() != '' and str(raw_pph).lower() != 'nan' else 0
+
+                    raw_netto = selected_record.get('Total Netto', 0)
+                    val_netto = round(float(raw_netto)) if pd.notnull(raw_netto) and str(raw_netto).strip() != '' and str(raw_netto).lower() != 'nan' else 0
+
+                    raw_prof_sum = selected_record.get('Gunakan Professional Sum', False)
+                    is_prof_sum_akt = str(raw_prof_sum).lower() in ['true', '1', 'yes', '1.0']
+                    
+                    raw_est_sum = selected_record.get('Gunakan Estimasi Sum', False)
+                    is_est_sum_akt = str(raw_est_sum).lower() in ['true', '1', 'yes', '1.0']
+
+                    raw_at_cost = selected_record.get('At Cost', 0)
+                    val_At_cost = round(float(raw_at_cost)) if pd.notnull(raw_at_cost) and str(raw_at_cost).strip() != '' and str(raw_at_cost).lower() != 'nan' else 0
+
+                    raw_mgmt_fee = selected_record.get('Management Fee', 0)
+                    val_mgmt_fee = round(float(raw_mgmt_fee)) if pd.notnull(raw_mgmt_fee) and str(raw_mgmt_fee).strip() != '' and str(raw_mgmt_fee).lower() != 'nan' else 0
+
+                    nomor_sa_wan_val = format_nomor_bersih(selected_record.get('Nomor SA / WAN', ''))
+                    nomor_po_val = format_nomor_bersih(selected_record.get('Nomor PO', selected_record.get('Nomor PO Rujukan', '-')))
+                    kontrak_no_val = format_nomor_bersih(selected_record.get('Kontrak No.', '-'))
+                    bank_info_val = selected_record.get('Informasi Bank', '<b>Bank Name :</b> BANK RAKYAT INDONESIA (PERSERO) Tbk.<br><b>Branch :</b> Cabang Luwuk<br><b>Account No :</b> 0167 0167 8888 303<br><b>Account Name :</b> PT. BANGGAI SENTRAL SULAWESI')
+
+                    html_logo_kiri = f'<img src="{persistent_logo_bss_b64}" style="max-height: 70px; max-width: 130px; object-fit: contain;">' if persistent_logo_bss_b64 else ''
+                    html_logo_kanan = f'<img src="{persistent_logo_iso_b64}" style="max-height: 75px; max-width: 210px; object-fit: contain;">' if persistent_logo_iso_b64 else ''
+                    html_ttd_direktur = f'<img src="{persistent_ttd_dir_b64}" style="max-height: 75px; max-width: 160px; object-fit: contain; display: block; margin: 0 auto;">' if persistent_ttd_dir_b64 else '<div style="height: 65px;"></div>'
+
+                    tanggal_cetak_str = datetime.today().strftime("%m/%d/%Y, %I:%M %p")
+                    deskripsi_keterangan_inv = str(selected_record.get('Keterangan Invoice', ''))
+
+                    pi_rujukan_inv = selected_record.get('PI No.')
+                    matched_items_m2 = [t for t in transaksi_list if str(t.get('PI No.')) == str(pi_rujukan_inv)]
+
+                    gross_subtotal = 0.0
+                    has_estimated_sum_category = is_est_sum_akt
+
+                    if is_prof_sum_akt:
+                        tabel_item_html = f"""
+                        <tr>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; font-weight: bold; background-color: #fafafa;">1</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; vertical-align: top !important; word-break: break-word;">
+                                <div style="font-size: 11.5px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">At Cost</div>
+                                <div style="font-size: 11px; color: #334155; line-height: 1.4;">{deskripsi_keterangan_inv}</div>
+                            </td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; color: #64748b;">-</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px; color: #64748b;">-</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px; font-weight: bold;">Rp {val_At_cost:,.0f}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; font-weight: bold; background-color: #fafafa;">2</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; vertical-align: top !important; word-break: break-word;">
+                                <div style="font-size: 11.5px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">Management Fee / Handling Fee (15%)</div>
+                                <div style="font-size: 11px; color: #334155; line-height: 1.4;">Layanan manajemen & pengelolaan operasional terkait</div>
+                            </td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; color: #64748b;">-</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px; color: #64748b;">-</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px; font-weight: bold;">Rp {val_mgmt_fee:,.0f}</td>
+                        </tr>
+                        """
+                        total_amount_due = val_At_cost + val_mgmt_fee
+                        discount_10_nominal = 0.0
+                    elif matched_items_m2:
+                        tabel_item_html = ""
+                        for idx_m2, row_m2 in enumerate(matched_items_m2, 1):
+                            uraian = row_m2.get('Uraian Pekerjaan', '')
+                            kategori = row_m2.get('Kategori', '')
+                            qty_val = parse_harga_presisi(row_m2.get('Qty', 0))
+                            satuan_val = row_m2.get('Unit') or row_m2.get('Satuan') or ''
+                            harga_satuan_val = parse_harga_presisi(row_m2.get('Harga Satuan', 0))
+                            
+                            if "estimated" in str(kategori).lower() or "estimasi" in str(kategori).lower():
+                                has_estimated_sum_category = True
+                            
+                            amount_murni_row = qty_val * harga_satuan_val
+                            gross_subtotal += amount_murni_row
+                            
+                            keterangan_row = row_m2.get('Keterangan', '')
+                            
+                            desc_html = f'<div style="font-size: 11.5px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">{uraian}</div>'
+                            if kategori:
+                                desc_html += f'<div style="font-size: 10.5px; color: #475569; margin-bottom: 2px;"><b>Kategori:</b> {kategori}</div>'
+                            if keterangan_row:
+                                desc_html += f'<div style="font-size: 10.5px; color: #334155; line-height: 1.35;">{keterangan_row}</div>'
+
+                            tabel_item_html += f"""
+                            <tr>
+                                <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; font-weight: bold; background-color: #fafafa;">{idx_m2}</td>
+                                <td style="border: 1px solid #94a3b8; padding: 12px 10px; vertical-align: top !important; word-break: break-word;">{desc_html}</td>
+                                <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; font-weight: 500; white-space: nowrap !important;">{qty_val:,.2f} {satuan_val}</td>
+                                <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px;">Rp {harga_satuan_val:,.2f}</td>
+                                <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px; font-weight: bold;">Rp {amount_murni_row:,.2f}</td>
+                            </tr>
+                            """
+                        
+                        discount_10_nominal = 0.0
+                        if has_estimated_sum_category and not is_prof_sum_akt:
+                            discount_10_nominal = round(gross_subtotal * 0.10)
+                            total_amount_due = round(gross_subtotal - discount_10_nominal)
+                        else:
+                            total_amount_due = val_inv
+                    else:
+                        gross_subtotal = val_inv
+                        tabel_item_html = f"""
+                        <tr>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; font-weight: bold; background-color: #fafafa;">1</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; vertical-align: top !important; word-break: break-word;"><div style="font-size: 11.5px; font-weight: bold; color: #0f172a;">{deskripsi_keterangan_inv}</div></td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: center; vertical-align: top !important; font-size: 11.5px; color: #64748b;">-</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px; color: #64748b;">-</td>
+                            <td style="border: 1px solid #94a3b8; padding: 12px 10px; text-align: right; vertical-align: top !important; font-size: 11.5px; font-weight: bold;">Rp {val_inv:,.0f}</td>
+                        </tr>
+                        """
+                        total_amount_due = val_inv
+                        discount_10_nominal = 0.0
+
+                    dpp_nilai_lain = round(total_amount_due * (11 / 12)) if val_ppn > 0 else total_amount_due
+
+                    summary_rows_html = ""
+                    if has_estimated_sum_category and discount_10_nominal > 0:
+                        summary_rows_html += f'<tr><td style="border-bottom: 1px solid #cbd5e1; padding: 6px 10px; font-weight: bold; color: #334155; font-size: 11px;">Gross Subtotal</td><td style="border-bottom: 1px solid #cbd5e1; padding: 6px 10px; text-align: right; color: #334155; font-size: 11px;">Rp {gross_subtotal:,.2f}</td></tr>'
+                        summary_rows_html += f'<tr><td style="border-bottom: 1px solid #cbd5e1; padding: 6px 10px; font-weight: bold; color: #c2410c; font-size: 11px;">Discount (10%)</td><td style="border-bottom: 1px solid #cbd5e1; padding: 6px 10px; text-align: right; color: #c2410c; font-size: 11px;">(Rp {discount_10_nominal:,.0f})</td></tr>'
+                    
+                    summary_rows_html += f'<tr><td style="border-bottom: 1px solid #cbd5e1; padding: 7px 10px; font-weight: bold; font-size: 11.5px;">Total Amount Due</td><td style="border-bottom: 1px solid #cbd5e1; padding: 7px 10px; text-align: right; font-weight: bold; font-size: 11.5px;">Rp {total_amount_due:,.0f}</td></tr>'
+                    summary_rows_html += f'<tr><td style="border-bottom: 1px solid #cbd5e1; padding: 6px 10px; font-size: 10.5px; color: #475569;">DPP Nilai Lain (11/12)</td><td style="border-bottom: 1px solid #cbd5e1; padding: 6px 10px; text-align: right; font-size: 10.5px; color: #475569;">Rp {dpp_nilai_lain:,.0f}</td></tr>'
+                    summary_rows_html += f'<tr><td style="border-bottom: 1px solid #cbd5e1; padding: 7px 10px; font-size: 11px;">VAT (PPN 11%)</td><td style="border-bottom: 1px solid #cbd5e1; padding: 7px 10px; text-align: right; font-size: 11px;">Rp {val_ppn:,.0f}</td></tr>'
+                    
+                    if val_pph > 0:
+                        summary_rows_html += f'<tr><td style="border-bottom: 1px solid #cbd5e1; padding: 7px 10px; font-size: 11px; color: #b91c1c;">Potongan PPh</td><td style="border-bottom: 1px solid #cbd5e1; padding: 7px 10px; text-align: right; font-size: 11px; color: #b91c1c;">(Rp {val_pph:,.0f})</td></tr>'
+                    
+                    total_akhir_cetak = round(total_amount_due + val_ppn - val_pph)
+                    summary_rows_html += f'<tr style="background-color: #f1f5f9; font-weight: bold;"><td style="padding: 9px 10px; border-top: 2px solid #0f172a; font-size: 12px;">T O T A L</td><td style="padding: 9px 10px; border-top: 2px solid #0f172a; text-align: right; font-size: 12px; color: #0f172a;">Rp {total_akhir_cetak:,.0f}</td></tr>'
+
+                    if cetak_ringkas:
+                        lingkup_items = []
+                        for row_m2 in matched_items_m2:
+                            uraian = str(row_m2.get('Uraian Pekerjaan', '') or '').strip()
+                            kategori = str(row_m2.get('Kategori', '') or '').strip()
+                            keterangan_row = str(row_m2.get('Keterangan', '') or '').strip()
+                            if not any((uraian, kategori, keterangan_row)):
+                                continue
+                            detail_scope = []
+                            if kategori:
+                                detail_scope.append(f'<span class="scope-category">{html.escape(kategori)}</span>')
+                            if keterangan_row:
+                                detail_scope.append(html.escape(keterangan_row).replace("\n", "<br>"))
+                            lingkup_items.append(
+                                '<li><strong>' + html.escape(uraian or 'Lingkup pekerjaan') + '</strong>'
+                                + (('<div class="scope-detail">' + '<br>'.join(detail_scope) + '</div>') if detail_scope else '')
+                                + '</li>'
+                            )
+
+                        if not lingkup_items and deskripsi_keterangan_inv.strip():
+                            lingkup_items.append(f'<li>{html.escape(deskripsi_keterangan_inv).replace(chr(10), "<br>")}</li>')
+                        if not lingkup_items:
+                            lingkup_items.append('<li>Lingkup pekerjaan sesuai PI yang dirujuk.</li>')
+
+                        nomor_pi_cetak = html.escape(str(pi_rujukan_inv or '-'))
+                        invoice_table_html = f"""
+                        <table class="compact-invoice-table">
+                            <thead><tr><th>LINGKUP PEKERJAAN</th><th class="compact-amount">TOTAL PI (Rp.)</th></tr></thead>
+                            <tbody><tr>
+                                <td><div class="pi-reference">PI No. {nomor_pi_cetak}</div><ul class="scope-list">{''.join(lingkup_items)}</ul></td>
+                                <td class="compact-amount"><strong>Rp {total_amount_due:,.0f}</strong></td>
+                            </tr><tr>
+                                <td class="payment-cell">
+                                    <div class="payment-title">PAYMENT INSTRUCTION</div>
+                                    <div class="payment-caption">Please remit to our bank:</div>
+                                    <div class="bank-info">{bank_info_val}</div>
+                                </td>
+                                <td class="summary-cell"><table class="summary-table">{summary_rows_html}</table></td>
+                            </tr></tbody>
+                        </table>
+                        """
+                    else:
+                        invoice_table_html = f"""
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px;">
+                            <thead>
+                                <tr style="background-color: #f1f5f9; color: #0f172a; border: 1px solid #94a3b8;">
+                                    <th style="border: 1px solid #94a3b8; padding: 10px 8px; width: 45px; text-align: center; font-weight: bold;">No.</th>
+                                    <th style="border: 1px solid #94a3b8; padding: 10px 8px; text-align: left; font-weight: bold;">DESCRIPTION</th>
+                                    <th style="border: 1px solid #94a3b8; padding: 10px 8px; width: 95px; text-align: center; font-weight: bold;">UNIT</th>
+                                    <th style="border: 1px solid #94a3b8; padding: 10px 8px; width: 110px; text-align: right; font-weight: bold;">UNIT PRICE (Rp.)</th>
+                                    <th style="border: 1px solid #94a3b8; padding: 10px 8px; width: 130px; text-align: right; font-weight: bold;">AMOUNT (Rp.)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tabel_item_html}
+                                <tr>
+                                    <td colspan="3" style="border: 1px solid #94a3b8; padding: 12px; vertical-align: top; background-color: #fff;">
+                                        <div style="font-size: 11px; font-weight: bold; margin-bottom: 3px; text-transform: uppercase; color: #0f172a;">PAYMENT INSTRUCTION</div>
+                                        <div style="font-size: 10.5px; margin-bottom: 6px; color: #475569;">Please remit to our bank:</div>
+                                        <div style="border: 1px solid #cbd5e1; padding: 10px; background: #f8fafc; font-size: 11px; line-height: 1.4; display: inline-block; width: 95%; border-radius: 4px;">{bank_info_val}</div>
+                                    </td>
+                                    <td colspan="2" style="border: 1px solid #94a3b8; padding: 0; vertical-align: top;"><table style="width: 100%; border-collapse: collapse; font-size: 12px;">{summary_rows_html}</table></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        """
+
+                    html_invoice = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <title></title>
+                        <style>
+                            @page {{ 
+                                size: A4; 
+                                margin: 6mm; 
+                            }}
+                            @media print {{
+                                html, body {{
+                                    width: 210mm;
+                                    height: 297mm;
+                                    margin: 0 !important;
+                                    padding: 6mm !important;
+                                    background: #fff !important;
+                                    -webkit-print-color-adjust: exact;
+                                }}
+                                @page {{
+                                    margin: 0;
+                                }}
+                            }}
+                            body {{ 
+                                font-family: Arial, sans-serif; 
+                                background-color: #ffffff; 
+                                color: #000000; 
+                                padding: 6mm; 
+                                margin: 0; 
+                                font-size: 11px; 
+                                line-height: 1.3; 
+                            }}
+                            .invoice-container {{ 
+                                background-color: white; 
+                                color: #111; 
+                                padding: 10px; 
+                                border: 2px solid #0f172a; 
+                                border-radius: 4px; 
+                                max-width: 820px; 
+                                margin: auto; 
+                                min-height: 275mm;
+                                display: flex;
+                                flex-direction: column;
+                                justify-content: space-between;
+                            }}
+                            .invoice-content-body {{
+                                flex-grow: 1;
+                            }}
+                            .footer-wrapper {{
+                                margin-top: auto;
+                                border-top: 1px solid #cbd5e1;
+                                padding-top: 6mm;
+                            }}
+                            .footer-container {{
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                font-size: 10.5px;
+                                color: #0f172a;
+                                font-weight: bold;
+                            }}
+                            .company-footer {{
+                                text-align: center;
+                                font-size: 8.5px;
+                                color: #475569;
+                                margin-top: 4px;
+                                line-height: 1.3;
+                            }}
+                            .compact-invoice-table {{ width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }}
+                            .compact-invoice-table th, .compact-invoice-table td {{ border: 1px solid #94a3b8; padding: 10px; vertical-align: top; }}
+                            .compact-invoice-table th {{ background: #f1f5f9; text-align: left; }}
+                            .compact-invoice-table .compact-amount {{ width: 155px; text-align: right; white-space: nowrap; }}
+                            .pi-reference {{ margin-bottom: 8px; font-weight: bold; color: #0f172a; }}
+                            .scope-list {{ margin: 0; padding-left: 20px; }}
+                            .scope-list li {{ margin: 0 0 8px; }}
+                            .scope-detail {{ margin-top: 3px; color: #475569; font-size: 10.5px; line-height: 1.4; }}
+                            .scope-category {{ font-weight: bold; color: #334155; }}
+                            .payment-title {{ font-weight: bold; font-size: 11px; margin-bottom: 3px; }}
+                            .payment-caption {{ color: #475569; font-size: 10.5px; margin-bottom: 6px; }}
+                            .bank-info {{ border: 1px solid #cbd5e1; padding: 10px; background: #f8fafc; font-size: 11px; line-height: 1.4; border-radius: 4px; }}
+                            .summary-cell {{ padding: 0 !important; }}
+                            .summary-table {{ width: 100%; border-collapse: collapse; font-size: 11px; }}
+                            .summary-table td {{ padding: 7px 10px; }}
+                            @media print {{ .compact-invoice-table, .compact-invoice-table tr {{ break-inside: avoid; page-break-inside: avoid; }} }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="invoice-container">
+                            <div class="invoice-content-body">
+                                <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; border-bottom: 2px solid #0f172a; padding-bottom: 8px;">
+                                    <tr>
+                                        <td style="width: 20%; vertical-align: middle; text-align: center; padding: 5px;">{html_logo_kiri}</td>
+                                        <td style="width: 52%; vertical-align: middle; text-align: center; padding: 5px;">
+                                            <h3 style="margin: 0; font-size: 15px; font-weight: bold; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">PT Banggai Sentral Sulawesi</h3>
+                                            <p style="margin: 2px 0; font-size: 10.5px; font-weight: bold; color: #334155; letter-spacing: 0.3px;">General Contractor and Supplier</p>
+                                            <p style="margin: 2px 0 0 0; font-size: 9.5px; color: #475569;">Jl. Urip Sumoharjo Nomor 53, Luwuk, Kabupaten Banggai, Provinsi Sulawesi Tengah</p>
+                                        </td>
+                                        <td style="width: 28%; vertical-align: middle; text-align: center; padding: 5px;">{html_logo_kanan}</td>
+                                    </tr>
+                                </table>
+
+                                <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+                                    <tr>
+                                        <td style="border: 1px solid #94a3b8; border-bottom: none; padding: 8px 12px; font-weight: bold; width: 50%; background: #ffffff; color: #0f172a;">Original</td>
+                                        <td style="border: 1px solid #94a3b8; border-bottom: none; border-left: none; padding: 8px 12px; text-align: right; font-weight: bold; font-size: 20px; background: #ffffff; color: #0f172a; width: 50%; letter-spacing: 1px;">INVOICE</td>
+                                    </tr>
+                                </table>
+
+                                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 15px;">
+                                    <tr>
+                                        <td style="width: 50%; border: 1px solid #94a3b8; vertical-align: top; padding: 10px;">
+                                            <div style="font-weight: bold; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; color: #0f172a;">Customer</div>
+                                            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                                <tr><td style="width: 65px; vertical-align: top; padding: 2px 0; color: #475569;">Name</td><td style="width: 15px; vertical-align: top; padding: 2px 0;">:</td><td style="vertical-align: top; padding: 2px 0; font-weight: bold; color: #0f172a;">{selected_record.get('Customer')}</td></tr>
+                                                <tr><td style="vertical-align: top; padding: 2px 0; color: #475569;">Address</td><td style="vertical-align: top; padding: 2px 0;">:</td><td style="vertical-align: top; padding: 2px 0; color: #1e293b;">{selected_record.get('Alamat Customer')}</td></tr>
+                                                <tr><td style="vertical-align: top; padding: 2px 0; color: #475569;">NPWP</td><td style="vertical-align: top; padding: 2px 0;">:</td><td style="vertical-align: top; padding: 2px 0; color: #1e293b;">{selected_record.get('NPWP Customer')}</td></tr>
+                                            </table>
+                                        </td>
+                                        <td style="width: 50%; border: 1px solid #94a3b8; vertical-align: top; padding: 10px; border-left: none;">
+                                            <div style="font-weight: bold; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 6px; color: #0f172a;">Misc</div>
+                                            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                                <tr><td style="width: 130px; padding: 2px 0; color: #475569;">Invoice No.</td><td style="padding: 2px 0; color: #0f172a;">: <b>{selected_record.get('Nomor Invoice Resmi')}</b></td></tr>
+                                                <tr><td style="padding: 2px 0; color: #475569;">Invoice Date</td><td style="padding: 2px 0; color: #1e293b;">: {selected_record.get('Tanggal Invoice')}</td></tr>
+                                                <tr><td style="padding: 2px 0; color: #475569;">Contract Number</td><td style="padding: 2px 0; color: #1e293b;">: {kontrak_no_val}</td></tr>
+                                                <tr><td style="padding: 2px 0; color: #475569;">PO Nomor</td><td style="padding: 2px 0; color: #1e293b;">: {nomor_po_val}</td></tr>
+                                                {f"<tr><td style='padding: 2px 0; color: #475569;'>WAN / SA Nomor</td><td style='padding: 2px 0; color: #1e293b;'>: {nomor_sa_wan_val}</td></tr>" if nomor_sa_wan_val and nomor_sa_wan_val != "-" else ""}
+                                                <tr><td style="padding: 2px 0; color: #475569;">Due Date</td><td style="padding: 2px 0; color: #1e293b;">: {selected_record.get('Jatuh Tempo')}</td></tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <!-- TABEL UTAMA -->
+                                {invoice_table_html}
+
+                                <!-- TANDA TANGAN -->
+                                <table style="width: 100%; margin-top: 45px; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="width: 63%;"></td>
+                                        <td style="width: 37%; text-align: left; padding-left: 35px;">
+                                            <p style="margin: 0 0 5px 0; color: #334155;">Best Regards,</p>
+                                            <div style="text-align: center; width: 160px; margin: 8px 0;">
+                                                {html_ttd_direktur}
+                                            </div>
+                                            <p style="margin: 5px 0 0 0; font-weight: bold; text-decoration: underline; font-size: 13px; color: #0f172a;">Ferry Tatimu</p>
+                                            <p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Direktur</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <div class="footer-wrapper">
+                                <div class="footer-container">
+                                    <div>FM-AK-11 Rev: 00</div>
+                                    <div>{tanggal_cetak_str}</div>
+                                </div>
+                                <div class="company-footer">
+                                    Head Office: Jl. Urip Sumoharjo 53, Luwuk 94715, Phone: 0461-21025, 21185, 21307, Fax: 0461-325241, email: Luwuk@ptbss.com<br>
+                                    Representative Office: Jl. Nginden Intan Tengah Blok F1-47, Surabaya 60118, Phone : 031-5925721
+                                </div>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    """
+
+                    st.markdown('<div class="document-preview">', unsafe_allow_html=True)
+                    st.components.v1.html(html_invoice, height=580, scrolling=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    col_save_pratinjau, col_btn1, col_btn2 = st.columns([1.5, 1, 1])
+                    with col_save_pratinjau:
+                        if not is_management:
+                            if st.button("💾 Simpan Perubahan Pratinjau (Save)", use_container_width=True, type="primary"):
+                                waktu_aksi = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                                selected_record["Update Terakhir"] = waktu_aksi
+                                
+                                current_billing = muat_data_billing()
+                                for i, item in enumerate(current_billing):
+                                    if str(item.get("Nomor Invoice Resmi")) == str(selected_record.get("Nomor Invoice Resmi")):
+                                        current_billing[i] = selected_record
+                                        break
+                                simpan_data_billing(current_billing)
+                                st.success(f"✅ Berhasil menyimpan perubahan terakhir untuk Invoice [{selected_record.get('Nomor Invoice Resmi')}]!")
+                        else:
+                            st.info("🔒 Tombol Simpan dinonaktifkan (Read-Only).")
+
+                    with col_btn1:
+                        b64_html = base64.b64encode(html_invoice.encode()).decode()
+                        print_script = f"""
+                            <script>
+                                function printDoc() {{
+                                    var win = window.open('about:blank', '_blank');
+                                    win.document.open();
+                                    win.document.write(atob("{b64_html}"));
+                                    win.document.close();
+                                    win.focus();
+                                    setTimeout(function(){{ win.print(); }}, 500);
+                                }}
+                            </script>
+                            <button onclick="printDoc()" style="width: 100%; background-color: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                                🖨️ Cetak / Print
+                            </button>
+                        """
+                        st.components.v1.html(print_script, height=50)
+
+                    with col_btn2:
+                        b64_pdf = base64.b64encode(html_invoice.encode()).decode()
+                        download_link = f'<a href="data:text/html;base64,{b64_pdf}" download="Invoice_{str(selected_record.get("Nomor Invoice Resmi", "")).replace("/", "-")}.html" style="text-decoration: none;"><button style="width: 100%; background-color: #3b82f6; color: white; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">📥 Download</button></a>'
+                        st.markdown(download_link, unsafe_allow_html=True)
+
+    # --- MENU 3: LIHAT DAFTAR INVOICE & PAJAK TERSIMPAN ---
+    elif menu_pilihan == "Lihat Daftar Invoice & Pajak Tersimpan":
+        st.markdown("#### 📂 Akumulasi Daftar Invoice & Pajak Tersimpan")
+        
+        billing_records = muat_data_billing()
+        if billing_records:
+            df_bill = pd.DataFrame(billing_records)
+            
+            # --- TABEL REKAPITULASI DETAIL PER KONTRAK UNTUK CROSS-CHECK ---
+            st.markdown("---")
+            st.markdown("##### 📊 Rekapitulasi Rincian Nilai Kontrak (Cross-Check Pemantauan Pembayaran)")
+            
+            if "Kontrak No." in df_bill.columns and "Nilai Invoice" in df_bill.columns:
+                df_bill["Nilai Invoice_num"] = pd.to_numeric(df_bill["Nilai Invoice"], errors="coerce").fillna(0.0)
+                df_bill["PPN Nominal_num"] = pd.to_numeric(df_bill.get("PPN Nominal", 0), errors="coerce").fillna(0.0)
+                
+                df_bill["Total Include PPN"] = df_bill["Nilai Invoice_num"] + df_bill["PPN Nominal_num"]
+                
+                rekap_kontrak = df_bill.groupby("Kontrak No.").agg(
+                    Jumlah_Invoice=("Nomor Invoice Resmi", "count"),
+                    Total_Netto_Sebelum_PPN=("Nilai Invoice_num", "sum"),
+                    Total_PPN=("PPN Nominal_num", "sum"),
+                    Total_Include_PPN=("Total Include PPN", "sum")
+                ).reset_index()
+                
+                rekap_kontrak.columns = ["Nomor Kontrak", "Jumlah", "Total Netto (Sebelum PPN)", "Total PPN (11%)", "Total Include PPN"]
+                
+                tot_jml = rekap_kontrak["Jumlah"].sum()
+                tot_netto = rekap_kontrak["Total Netto (Sebelum PPN)"].sum()
+                tot_ppn = rekap_kontrak["Total PPN (11%)"].sum()
+                tot_include = rekap_kontrak["Total Include PPN"].sum()
+                
+                baris_grand_total = pd.DataFrame([{
+                    "Nomor Kontrak": "GRAND TOTAL KESELURUHAN",
+                    "Jumlah": tot_jml,
+                    "Total Netto (Sebelum PPN)": tot_netto,
+                    "Total PPN (11%)": tot_ppn,
+                    "Total Include PPN": tot_include
+                }])
+                rekap_kontrak = pd.concat([rekap_kontrak, baris_grand_total], ignore_index=True)
+                
+                for col_rupiah in ["Total Netto (Sebelum PPN)", "Total PPN (11%)", "Total Include PPN"]:
+                    rekap_kontrak[col_rupiah] = rekap_kontrak[col_rupiah].apply(lambda x: f"Rp {x:,.0f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                
+                st.dataframe(rekap_kontrak, use_container_width=True, hide_index=True)
+            else:
+                st.info("Kolom kontrak atau nilai invoice belum lengkap untuk direkap.")
+
+            st.markdown("---")
+            st.markdown("##### 📋 Daftar Rincian Seluruh Invoice Tersimpan")
+            
+            kolom_prioritas = [
+                "Nomor Invoice Resmi", "PI No.", "Customer", "Kontrak No.", "Nomor PO", "Nomor SA / WAN",
+                "Nilai Gross (Bruto)", "Diskon Nominal (10%)", "Nilai Invoice", 
+                "Gunakan Professional Sum", "At Cost", "Management Fee", 
+                "PPN Nominal", "PPh Nominal", "Total Netto", "Update Terakhir"
+            ]
+            
+            kolom_ada = [c for c in kolom_prioritas if c in df_bill.columns]
+            kolom_sisa = [c for c in df_bill.columns if c not in kolom_prioritas and c != "Nilai Invoice_num" and c != "PPN Nominal_num" and c != "Total Include PPN"]
+            df_display = df_bill[kolom_ada + kolom_sisa]
+            
+            st.dataframe(df_display, use_container_width=True)
+            
+            st.markdown("---")
+            st.markdown("#### 🗑️ Hapus Data Invoice Tersimpan")
+            if is_management:
+                st.info("🔒 Fitur hapus data dinonaktifkan untuk akun Direksi (Read-Only).")
+            else:
+                pilihan_hapus_inv = [f"{item.get('Nomor Invoice Resmi')} (PI: {item.get('PI No.')} | Customer: {item.get('Customer')})" for item in billing_records]
+                
+                col_dh1, col_dh2 = st.columns([2, 1])
+                with col_dh1:
+                    target_del_idx = st.selectbox("Pilih Invoice yang Ingin Dihapus:", range(len(pilihan_hapus_inv)), format_func=lambda x: pilihan_hapus_inv[x])
+                with col_dh2:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("❌ Hapus Invoice Terpilih", use_container_width=True, type="primary"):
+                        try:
+                            billing_records.pop(target_del_idx)
+                            simpan_data_billing(billing_records)
+                            st.success("✅ Berhasil menghapus data invoice resmi!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"⚠️ Gagal menghapus: {e}")
+        else:
+            st.info("Belum ada data invoice tersimpan.")

@@ -1,0 +1,2028 @@
+<div class="user-management-page">
+
+    <style>
+
+        /* =========================================================
+           USER MANAGEMENT PAGE
+           ========================================================= */
+
+        .user-management-page {
+            width: 100%;
+            color: #0f172a;
+        }
+
+
+        /* =========================================================
+           PAGE HEADER
+           ========================================================= */
+
+        .user-management-page .page-header {
+            margin-bottom: 24px;
+        }
+
+        .user-management-page .page-header .module-code {
+            margin-bottom: 6px;
+
+            color: #64748b;
+
+            font-size: 11px;
+            font-weight: 700;
+
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .user-management-page .page-header h1 {
+            margin: 0;
+
+            color: #0f172a;
+
+            font-size: 28px;
+            line-height: 1.2;
+            font-weight: 700;
+        }
+
+        .user-management-page .page-header p {
+            margin: 7px 0 0;
+
+            color: #64748b;
+
+            font-size: 14px;
+        }
+
+
+        /* =========================================================
+           CONTENT CARD
+           ========================================================= */
+
+        .user-management-page .content-card {
+            width: 100%;
+            box-sizing: border-box;
+
+            background: #ffffff;
+
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+
+            box-shadow:
+                0 4px 16px rgba(15, 23, 42, 0.04);
+
+            overflow: hidden;
+        }
+
+
+        /* =========================================================
+           CARD HEADER
+           ========================================================= */
+
+        .user-management-page .content-card-header {
+            display: flex;
+
+            align-items: center;
+            justify-content: space-between;
+
+            gap: 20px;
+
+            padding: 20px 22px;
+
+            border-bottom: 1px solid #e2e8f0;
+
+            background: #ffffff;
+        }
+
+        .user-management-page .content-card-header .module-code {
+            margin-bottom: 4px;
+
+            color: #64748b;
+
+            font-size: 10px;
+            font-weight: 700;
+
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .user-management-page .content-card-header h2 {
+            margin: 0;
+
+            color: #0f172a;
+
+            font-size: 19px;
+            font-weight: 700;
+        }
+
+
+        /* =========================================================
+           BUTTON
+           ========================================================= */
+
+        .user-management-page .btn {
+            display: inline-flex;
+
+            align-items: center;
+            justify-content: center;
+
+            min-height: 34px;
+
+            padding: 7px 12px;
+
+            border-radius: 8px;
+            border: 1px solid transparent;
+
+            font-family: inherit;
+
+            font-size: 12px;
+            font-weight: 600;
+
+            cursor: pointer;
+
+            transition:
+                background-color 0.15s ease,
+                border-color 0.15s ease,
+                color 0.15s ease,
+                transform 0.15s ease,
+                box-shadow 0.15s ease;
+        }
+
+        .user-management-page .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .user-management-page .btn:active {
+            transform: translateY(0);
+        }
+
+        .user-management-page .btn-primary {
+            background: #0f172a;
+            border-color: #0f172a;
+
+            color: #ffffff;
+
+            box-shadow:
+                0 2px 5px rgba(15, 23, 42, 0.10);
+        }
+
+        .user-management-page .btn-primary:hover {
+            background: #1e293b;
+            border-color: #1e293b;
+        }
+
+        .user-management-page .btn-secondary {
+            background: #ffffff;
+            border-color: #cbd5e1;
+
+            color: #334155;
+        }
+
+        .user-management-page .btn-secondary:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .user-management-page .btn-success {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+
+            color: #166534;
+        }
+
+        .user-management-page .btn-success:hover {
+            background: #dcfce7;
+        }
+
+        .user-management-page .btn-warning {
+            background: #fffbeb;
+            border-color: #fde68a;
+
+            color: #92400e;
+        }
+
+        .user-management-page .btn-warning:hover {
+            background: #fef3c7;
+        }
+
+        .user-management-page .btn-danger {
+            background: #fef2f2;
+            border-color: #fecaca;
+
+            color: #b91c1c;
+        }
+
+        .user-management-page .btn-danger:hover {
+            background: #fee2e2;
+        }
+
+
+        /* =========================================================
+           TABLE
+           ========================================================= */
+
+        .user-management-page .table-wrapper {
+            width: 100%;
+
+            overflow-x: auto;
+        }
+
+        .user-management-page .data-table {
+            width: 100%;
+
+            border-collapse: collapse;
+
+            min-width: 900px;
+        }
+
+        .user-management-page .data-table thead {
+            background: #f8fafc;
+        }
+
+        .user-management-page .data-table th {
+            padding: 12px 16px;
+
+            color: #64748b;
+
+            font-size: 10px;
+            font-weight: 700;
+
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+
+            text-align: left;
+
+            border-bottom: 1px solid #e2e8f0;
+
+            white-space: nowrap;
+        }
+
+        .user-management-page .data-table td {
+            padding: 13px 16px;
+
+            color: #334155;
+
+            font-size: 13px;
+
+            border-bottom: 1px solid #f1f5f9;
+
+            vertical-align: middle;
+        }
+
+        .user-management-page .data-table tbody tr {
+            transition:
+                background-color 0.15s ease;
+        }
+
+        .user-management-page .data-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .user-management-page .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .user-management-page .data-table td strong {
+            color: #0f172a;
+
+            font-weight: 650;
+        }
+
+
+        /* =========================================================
+           ROLE BADGE
+           ========================================================= */
+
+        .user-management-page .role-badge {
+            display: inline-flex;
+
+            align-items: center;
+
+            padding: 5px 9px;
+
+            border-radius: 999px;
+
+            background: #f1f5f9;
+
+            color: #475569;
+
+            font-size: 11px;
+            font-weight: 600;
+
+            white-space: nowrap;
+        }
+
+
+        /* =========================================================
+           STATUS BADGE
+           ========================================================= */
+
+        .user-management-page .status-badge {
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            padding: 5px 9px;
+
+            border-radius: 999px;
+
+            font-size: 11px;
+            font-weight: 600;
+
+            white-space: nowrap;
+        }
+
+        .user-management-page .status-badge::before {
+            content: "";
+
+            width: 6px;
+            height: 6px;
+
+            border-radius: 50%;
+        }
+
+        .user-management-page .status-active {
+            background: #f0fdf4;
+
+            color: #166534;
+        }
+
+        .user-management-page .status-active::before {
+            background: #22c55e;
+        }
+
+        .user-management-page .status-inactive {
+            background: #f1f5f9;
+
+            color: #64748b;
+        }
+
+        .user-management-page .status-inactive::before {
+            background: #94a3b8;
+        }
+
+
+        /* =========================================================
+           TABLE ACTIONS
+           ========================================================= */
+
+        .user-management-page .table-actions {
+            display: flex;
+
+            align-items: center;
+
+            gap: 5px;
+
+            flex-wrap: wrap;
+        }
+
+        .user-management-page .table-actions .btn {
+            min-height: 30px;
+
+            padding: 5px 9px;
+
+            font-size: 11px;
+        }
+
+        .user-management-page .table-actions form {
+            margin: 0;
+        }
+
+
+        /* =========================================================
+           EMPTY STATE
+           ========================================================= */
+
+        .user-management-page .empty {
+            padding: 50px 20px;
+
+            text-align: center;
+
+            color: #64748b;
+
+            font-size: 13px;
+        }
+
+
+        /* =========================================================
+           MODAL OVERLAY
+           ========================================================= */
+
+        .user-management-page .modal-overlay {
+            position: fixed !important;
+
+            top: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            left: 0 !important;
+
+            z-index: 99999 !important;
+
+            display: none;
+
+            align-items: center;
+            justify-content: center;
+
+            width: 100vw;
+            height: 100vh;
+
+            padding: 24px;
+
+            box-sizing: border-box;
+
+            background:
+                rgba(15, 23, 42, 0.62);
+
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
+        .user-management-page .modal-overlay.is-open {
+            display: flex !important;
+        }
+
+
+        /* =========================================================
+           MODAL CARD
+           ========================================================= */
+
+        .user-management-page .modal-card {
+            position: relative;
+
+            width: 100%;
+            max-width: 500px;
+
+            max-height: calc(100vh - 48px);
+
+            box-sizing: border-box;
+
+            display: flex;
+
+            flex-direction: column;
+
+            background: #ffffff;
+
+            border: 1px solid #e2e8f0;
+
+            border-radius: 16px;
+
+            overflow: hidden;
+
+            box-shadow:
+                0 30px 70px rgba(15, 23, 42, 0.25),
+                0 10px 25px rgba(15, 23, 42, 0.10);
+
+            animation:
+                userModalIn 0.18s ease-out;
+        }
+
+
+        /* =========================================================
+           MODAL HEADER
+           ========================================================= */
+
+        .user-management-page .modal-header {
+            display: flex;
+
+            align-items: flex-start;
+            justify-content: space-between;
+
+            gap: 20px;
+
+            padding: 20px 22px;
+
+            border-bottom: 1px solid #e2e8f0;
+
+            background: #ffffff;
+        }
+
+        .user-management-page .modal-header .module-code {
+            margin-bottom: 5px;
+
+            color: #64748b;
+
+            font-size: 10px;
+            font-weight: 700;
+
+            letter-spacing: 1px;
+
+            text-transform: uppercase;
+        }
+
+        .user-management-page .modal-header h2 {
+            margin: 0;
+
+            color: #0f172a;
+
+            font-size: 19px;
+
+            line-height: 1.3;
+
+            font-weight: 700;
+        }
+
+        .user-management-page .modal-header p {
+            margin: 5px 0 0;
+
+            color: #64748b;
+
+            font-size: 12px;
+        }
+
+
+        /* =========================================================
+           CLOSE BUTTON
+           ========================================================= */
+
+        .user-management-page .modal-close {
+            width: 32px;
+            height: 32px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            flex-shrink: 0;
+
+            padding: 0;
+
+            border: 1px solid #e2e8f0;
+
+            border-radius: 8px;
+
+            background: #ffffff;
+
+            color: #64748b;
+
+            font-family: inherit;
+
+            font-size: 20px;
+            font-weight: 400;
+
+            line-height: 1;
+
+            cursor: pointer;
+
+            transition:
+                background-color 0.15s ease,
+                border-color 0.15s ease,
+                color 0.15s ease;
+        }
+
+        .user-management-page .modal-close:hover {
+            background: #f8fafc;
+
+            border-color: #cbd5e1;
+
+            color: #0f172a;
+        }
+
+
+        /* =========================================================
+           MODAL FORM
+           ========================================================= */
+
+        .user-management-page .modal-card form {
+            width: 100%;
+
+            box-sizing: border-box;
+
+            padding: 22px;
+
+            overflow-y: auto;
+        }
+
+        .user-management-page .form-group {
+            margin-bottom: 16px;
+        }
+
+        .user-management-page .form-group:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .user-management-page .form-group label {
+            display: block;
+
+            margin-bottom: 6px;
+
+            color: #334155;
+
+            font-size: 12px;
+
+            font-weight: 650;
+        }
+
+        .user-management-page .form-group input,
+        .user-management-page .form-group select,
+        .user-management-page .form-group textarea {
+            width: 100%;
+
+            box-sizing: border-box;
+
+            min-height: 42px;
+
+            padding: 9px 11px;
+
+            border: 1px solid #cbd5e1;
+
+            border-radius: 8px;
+
+            background: #ffffff;
+
+            color: #0f172a;
+
+            font-family: inherit;
+
+            font-size: 13px;
+
+            outline: none;
+
+            transition:
+                border-color 0.15s ease,
+                box-shadow 0.15s ease,
+                background-color 0.15s ease;
+        }
+
+        .user-management-page .form-group input::placeholder {
+            color: #94a3b8;
+        }
+
+        .user-management-page .form-group input:hover,
+        .user-management-page .form-group select:hover,
+        .user-management-page .form-group textarea:hover {
+            border-color: #94a3b8;
+        }
+
+        .user-management-page .form-group input:focus,
+        .user-management-page .form-group select:focus,
+        .user-management-page .form-group textarea:focus {
+            border-color: #64748b;
+
+            box-shadow:
+                0 0 0 3px
+                rgba(100, 116, 139, 0.12);
+        }
+
+
+        /* =========================================================
+           MODAL FOOTER
+           ========================================================= */
+
+        .user-management-page .modal-footer {
+            display: flex;
+
+            align-items: center;
+
+            justify-content: flex-end;
+
+            gap: 8px;
+
+            margin-top: 22px;
+
+            padding-top: 18px;
+
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .user-management-page .modal-footer .btn {
+            min-width: 100px;
+        }
+
+
+        /* =========================================================
+           MODAL ANIMATION
+           ========================================================= */
+
+        @keyframes userModalIn {
+
+            from {
+                opacity: 0;
+
+                transform:
+                    translateY(10px)
+                    scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+
+                transform:
+                    translateY(0)
+                    scale(1);
+            }
+
+        }
+
+
+        /* =========================================================
+           RESPONSIVE
+           ========================================================= */
+
+        @media (max-width: 768px) {
+
+            .user-management-page .page-header h1 {
+                font-size: 24px;
+            }
+
+            .user-management-page .content-card-header {
+                align-items: stretch;
+
+                flex-direction: column;
+            }
+
+            .user-management-page .content-card-header .btn {
+                width: 100%;
+            }
+
+            .user-management-page .modal-overlay {
+                padding: 12px !important;
+            }
+
+            .user-management-page .modal-card {
+                max-height:
+                    calc(100vh - 24px);
+
+                border-radius: 14px;
+            }
+
+            .user-management-page .modal-header {
+                padding: 17px;
+            }
+
+            .user-management-page .modal-card form {
+                padding: 17px;
+            }
+
+            .user-management-page .modal-footer {
+                flex-direction: column-reverse;
+            }
+
+            .user-management-page .modal-footer .btn {
+                width: 100%;
+            }
+
+            .user-management-page .table-actions {
+                flex-direction: column;
+
+                align-items: stretch;
+            }
+
+            .user-management-page .table-actions form,
+            .user-management-page .table-actions .btn {
+                width: 100%;
+            }
+
+            .user-management-page .table-actions form .btn {
+                width: 100%;
+            }
+
+        }
+
+
+        /* =========================================================
+           ACCESSIBILITY
+           ========================================================= */
+
+        .user-management-page .btn:focus-visible,
+        .user-management-page .modal-close:focus-visible,
+        .user-management-page .form-group input:focus-visible,
+        .user-management-page .form-group select:focus-visible,
+        .user-management-page .form-group textarea:focus-visible {
+            outline: 2px solid #64748b;
+
+            outline-offset: 2px;
+        }
+
+    </style>
+
+
+    <!-- =========================================================
+         PAGE HEADER
+    ========================================================= -->
+
+    <div class="page-header">
+
+        <div class="module-code">
+            SECURITY / USER MANAGEMENT
+        </div>
+
+        <h1>
+            Manajemen Akun
+        </h1>
+
+        <p>
+            Kelola pengguna, role, departemen,
+            dan akses sistem.
+        </p>
+
+    </div>
+
+
+    <!-- =========================================================
+         USER DATABASE
+    ========================================================= -->
+
+    <div class="content-card">
+
+        <div class="content-card-header">
+
+            <div>
+
+                <div class="module-code">
+                    USER DATABASE
+                </div>
+
+                <h2>
+                    Daftar Pengguna
+                </h2>
+
+            </div>
+
+
+            <div>
+
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="openAddUserModal()"
+                >
+                    + Tambah User
+                </button>
+
+            </div>
+
+        </div>
+
+
+        {% if users %}
+
+            <div class="table-wrapper">
+
+                <table class="data-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                ID
+                            </th>
+
+                            <th>
+                                Username
+                            </th>
+
+                            <th>
+                                Nama Lengkap
+                            </th>
+
+                            <th>
+                                Role
+                            </th>
+
+                            <th>
+                                Departemen
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                            <th>
+                                Aksi
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for item in users %}
+
+                        <tr>
+
+                            <!-- ID -->
+
+                            <td>
+                                {{ item.id }}
+                            </td>
+
+
+                            <!-- USERNAME -->
+
+                            <td>
+
+                                <strong>
+                                    {{ item.username }}
+                                </strong>
+
+                            </td>
+
+
+                            <!-- NAMA -->
+
+                            <td>
+                                {{ item.nama_lengkap }}
+                            </td>
+
+
+                            <!-- ROLE -->
+
+                            <td>
+
+                                <span class="role-badge">
+                                    {{ item.role }}
+                                </span>
+
+                            </td>
+
+
+                            <!-- DEPARTEMEN -->
+
+                            <td>
+                                {{ item.departemen or "-" }}
+                            </td>
+
+
+                            <!-- STATUS -->
+
+                            <td>
+
+                                {% if item.is_active %}
+
+                                    <span
+                                        class="status-badge status-active"
+                                    >
+                                        Aktif
+                                    </span>
+
+                                {% else %}
+
+                                    <span
+                                        class="status-badge status-inactive"
+                                    >
+                                        Nonaktif
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- AKSI -->
+
+                            <td>
+
+                                <div class="table-actions">
+
+
+                                    <!-- EDIT -->
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-secondary"
+                                        onclick="openEditUserModal(
+                                            {{ item.id }},
+                                            {{ item.username|tojson }},
+                                            {{ item.nama_lengkap|tojson }},
+                                            {{ item.role|tojson }},
+                                            {{ (item.departemen or '')|tojson }}
+                                        )"
+                                    >
+                                        Edit
+                                    </button>
+
+
+                                    <!-- PASSWORD -->
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-secondary"
+                                        onclick="openResetPasswordModal(
+                                            {{ item.id }},
+                                            {{ item.username|tojson }}
+                                        )"
+                                    >
+                                        Password
+                                    </button>
+
+
+                                    <!-- STATUS -->
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for('auth.users') }}"
+                                        onsubmit="return confirmStatusUser(
+                                            {{ item.is_active|int }}
+                                        );"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="action"
+                                            value="toggle_status"
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="user_id"
+                                            value="{{ item.id }}"
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="is_active"
+                                            value="{{ 0 if item.is_active else 1 }}"
+                                        >
+
+
+                                        {% if item.is_active %}
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-warning"
+                                            >
+                                                Nonaktifkan
+                                            </button>
+
+                                        {% else %}
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-success"
+                                            >
+                                                Aktifkan
+                                            </button>
+
+                                        {% endif %}
+
+                                    </form>
+
+
+                                    <!-- DELETE -->
+
+                                    <form
+                                        method="POST"
+                                        action="{{ url_for('auth.users') }}"
+                                        onsubmit="return confirmDeleteUser(
+                                            {{ item.username|tojson }}
+                                        );"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="action"
+                                            value="delete"
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="user_id"
+                                            value="{{ item.id }}"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-danger"
+                                        >
+                                            Hapus
+                                        </button>
+
+                                    </form>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+        {% else %}
+
+            <div class="empty">
+
+                Belum ada pengguna yang terdaftar.
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- =========================================================
+         MODAL TAMBAH USER
+    ========================================================= -->
+
+    <div
+        id="addUserModal"
+        class="modal-overlay"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="addUserTitle"
+        >
+
+            <div class="modal-header">
+
+                <div>
+
+                    <div class="module-code">
+                        USER DATABASE
+                    </div>
+
+                    <h2 id="addUserTitle">
+                        Tambah User
+                    </h2>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="modal-close"
+                    onclick="closeAddUserModal()"
+                    aria-label="Tutup"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <form
+                method="POST"
+                action="{{ url_for('auth.users') }}"
+            >
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="add"
+                >
+
+
+                <!-- USERNAME -->
+
+                <div class="form-group">
+
+                    <label for="add_username">
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        id="add_username"
+                        name="username"
+                        required
+                        autocomplete="off"
+                        placeholder="Masukkan username"
+                    >
+
+                </div>
+
+
+                <!-- PASSWORD -->
+
+                <div class="form-group">
+
+                    <label for="add_password">
+                        Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="add_password"
+                        name="password"
+                        required
+                        autocomplete="new-password"
+                        placeholder="Masukkan password"
+                    >
+
+                </div>
+
+
+                <!-- NAMA -->
+
+                <div class="form-group">
+
+                    <label for="add_nama_lengkap">
+                        Nama Lengkap
+                    </label>
+
+                    <input
+                        type="text"
+                        id="add_nama_lengkap"
+                        name="nama_lengkap"
+                        required
+                        placeholder="Masukkan nama lengkap"
+                    >
+
+                </div>
+
+
+                <!-- ROLE -->
+
+                <div class="form-group">
+
+                    <label for="add_role">
+                        Role
+                    </label>
+
+                    <select
+                        id="add_role"
+                        name="role"
+                        required
+                    >
+
+                        <option value="">
+                            -- Pilih Role --
+                        </option>
+
+                        <option value="Super Admin">
+                            Super Admin
+                        </option>
+
+                        <option value="Management">
+                            Management
+                        </option>
+
+                        <option value="Finance & Tax">
+                            Finance & Tax
+                        </option>
+
+                        <option value="Project Manager">
+                            Project Manager
+                        </option>
+
+                        <option value="Project Support">
+                            Project Support
+                        </option>
+
+                        <option value="Admin Support">
+                            Admin Support
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- DEPARTEMEN -->
+
+                <div class="form-group">
+
+                    <label for="add_departemen">
+                        Departemen
+                    </label>
+
+                    <input
+                        type="text"
+                        id="add_departemen"
+                        name="departemen"
+                        placeholder="Contoh: Finance"
+                    >
+
+                </div>
+
+
+                <!-- FOOTER -->
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="closeAddUserModal()"
+                    >
+                        Batal
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+                        Simpan User
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         MODAL EDIT USER
+    ========================================================= -->
+
+    <div
+        id="editUserModal"
+        class="modal-overlay"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="editUserTitle"
+        >
+
+            <div class="modal-header">
+
+                <div>
+
+                    <div class="module-code">
+                        USER DATABASE
+                    </div>
+
+                    <h2 id="editUserTitle">
+                        Edit User
+                    </h2>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="modal-close"
+                    onclick="closeEditUserModal()"
+                    aria-label="Tutup"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <form
+                method="POST"
+                action="{{ url_for('auth.users') }}"
+            >
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="edit"
+                >
+
+                <input
+                    type="hidden"
+                    id="edit_user_id"
+                    name="user_id"
+                >
+
+
+                <!-- USERNAME -->
+
+                <div class="form-group">
+
+                    <label for="edit_username">
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        id="edit_username"
+                        name="username"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- NAMA -->
+
+                <div class="form-group">
+
+                    <label for="edit_nama_lengkap">
+                        Nama Lengkap
+                    </label>
+
+                    <input
+                        type="text"
+                        id="edit_nama_lengkap"
+                        name="nama_lengkap"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- ROLE -->
+
+                <div class="form-group">
+
+                    <label for="edit_role">
+                        Role
+                    </label>
+
+                    <select
+                        id="edit_role"
+                        name="role"
+                        required
+                    >
+
+                        <option value="Super Admin">
+                            Super Admin
+                        </option>
+
+                        <option value="Management">
+                            Management
+                        </option>
+
+                        <option value="Finance & Tax">
+                            Finance & Tax
+                        </option>
+
+                        <option value="Project Manager">
+                            Project Manager
+                        </option>
+
+                        <option value="Project Support">
+                            Project Support
+                        </option>
+
+                        <option value="Admin Support">
+                            Admin Support
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- DEPARTEMEN -->
+
+                <div class="form-group">
+
+                    <label for="edit_departemen">
+                        Departemen
+                    </label>
+
+                    <input
+                        type="text"
+                        id="edit_departemen"
+                        name="departemen"
+                    >
+
+                </div>
+
+
+                <!-- FOOTER -->
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="closeEditUserModal()"
+                    >
+                        Batal
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+                        Simpan Perubahan
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         MODAL RESET PASSWORD
+    ========================================================= -->
+
+    <div
+        id="resetPasswordModal"
+        class="modal-overlay"
+        aria-hidden="true"
+    >
+
+        <div
+            class="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resetPasswordTitle"
+        >
+
+            <div class="modal-header">
+
+                <div>
+
+                    <div class="module-code">
+                        SECURITY
+                    </div>
+
+                    <h2 id="resetPasswordTitle">
+                        Reset Password
+                    </h2>
+
+                    <p id="resetPasswordUsername"></p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="modal-close"
+                    onclick="closeResetPasswordModal()"
+                    aria-label="Tutup"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <form
+                method="POST"
+                action="{{ url_for('auth.users') }}"
+            >
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="reset_password"
+                >
+
+                <input
+                    type="hidden"
+                    id="reset_password_user_id"
+                    name="user_id"
+                >
+
+
+                <div class="form-group">
+
+                    <label for="reset_password">
+                        Password Baru
+                    </label>
+
+                    <input
+                        type="password"
+                        id="reset_password"
+                        name="password_baru"
+                        required
+                        autocomplete="new-password"
+                        placeholder="Masukkan password baru"
+                    >
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="closeResetPasswordModal()"
+                    >
+                        Batal
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+                        Simpan Password
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         JAVASCRIPT
+    ========================================================= -->
+
+    <script>
+
+        /* =====================================================
+           BODY SCROLL
+        ===================================================== */
+
+        function lockBodyScroll() {
+
+            document.body.style.overflow = "hidden";
+
+        }
+
+
+        function unlockBodyScroll() {
+
+            document.body.style.overflow = "";
+
+        }
+
+
+        /* =====================================================
+           TAMBAH USER
+        ===================================================== */
+
+        function openAddUserModal() {
+
+            const modal =
+                document.getElementById(
+                    "addUserModal"
+                );
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.add("is-open");
+
+            modal.setAttribute(
+                "aria-hidden",
+                "false"
+            );
+
+            lockBodyScroll();
+
+
+            const username =
+                document.getElementById(
+                    "add_username"
+                );
+
+            if (username) {
+
+                setTimeout(
+                    function() {
+
+                        username.focus();
+
+                    },
+                    100
+                );
+
+            }
+
+        }
+
+
+        function closeAddUserModal() {
+
+            const modal =
+                document.getElementById(
+                    "addUserModal"
+                );
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.remove("is-open");
+
+            modal.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+
+            unlockBodyScroll();
+
+        }
+
+
+        /* =====================================================
+           EDIT USER
+        ===================================================== */
+
+        function openEditUserModal(
+            id,
+            username,
+            namaLengkap,
+            role,
+            departemen
+        ) {
+
+            const modal =
+                document.getElementById(
+                    "editUserModal"
+                );
+
+            if (!modal) {
+                return;
+            }
+
+
+            document.getElementById(
+                "edit_user_id"
+            ).value = id;
+
+
+            document.getElementById(
+                "edit_username"
+            ).value = username;
+
+
+            document.getElementById(
+                "edit_nama_lengkap"
+            ).value = namaLengkap;
+
+
+            document.getElementById(
+                "edit_role"
+            ).value = role;
+
+
+            document.getElementById(
+                "edit_departemen"
+            ).value =
+                departemen || "";
+
+
+            modal.classList.add(
+                "is-open"
+            );
+
+            modal.setAttribute(
+                "aria-hidden",
+                "false"
+            );
+
+            lockBodyScroll();
+
+
+            setTimeout(
+                function() {
+
+                    document.getElementById(
+                        "edit_username"
+                    ).focus();
+
+                },
+                100
+            );
+
+        }
+
+
+        function closeEditUserModal() {
+
+            const modal =
+                document.getElementById(
+                    "editUserModal"
+                );
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.remove(
+                "is-open"
+            );
+
+            modal.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+
+            unlockBodyScroll();
+
+        }
+
+
+        /* =====================================================
+           RESET PASSWORD
+        ===================================================== */
+
+        function openResetPasswordModal(
+            id,
+            username
+        ) {
+
+            const modal =
+                document.getElementById(
+                    "resetPasswordModal"
+                );
+
+            if (!modal) {
+                return;
+            }
+
+
+            document.getElementById(
+                "reset_password_user_id"
+            ).value = id;
+
+
+            document.getElementById(
+                "resetPasswordUsername"
+            ).textContent =
+                "User: " + username;
+
+
+            const password =
+                document.getElementById(
+                    "reset_password"
+                );
+
+            if (password) {
+
+                password.value = "";
+
+            }
+
+
+            modal.classList.add(
+                "is-open"
+            );
+
+            modal.setAttribute(
+                "aria-hidden",
+                "false"
+            );
+
+            lockBodyScroll();
+
+
+            setTimeout(
+                function() {
+
+                    if (password) {
+
+                        password.focus();
+
+                    }
+
+                },
+                100
+            );
+
+        }
+
+
+        function closeResetPasswordModal() {
+
+            const modal =
+                document.getElementById(
+                    "resetPasswordModal"
+                );
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.remove(
+                "is-open"
+            );
+
+            modal.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+
+            unlockBodyScroll();
+
+        }
+
+
+        /* =====================================================
+           STATUS USER
+        ===================================================== */
+
+        function confirmStatusUser(
+            isActive
+        ) {
+
+            if (isActive) {
+
+                return confirm(
+                    "Nonaktifkan user ini?\n\n" +
+                    "User tidak akan dapat login."
+                );
+
+            }
+
+            return confirm(
+                "Aktifkan kembali user ini?"
+            );
+
+        }
+
+
+        /* =====================================================
+           DELETE USER
+        ===================================================== */
+
+        function confirmDeleteUser(
+            username
+        ) {
+
+            return confirm(
+                "Hapus user \"" +
+                username +
+                "\"?\n\n" +
+                "Tindakan ini tidak dapat dibatalkan."
+            );
+
+        }
+
+
+        /* =====================================================
+           CLICK OUTSIDE MODAL
+        ===================================================== */
+
+        document.addEventListener(
+            "click",
+            function(event) {
+
+                if (
+                    event.target.classList.contains(
+                        "modal-overlay"
+                    )
+                ) {
+
+                    event.target.classList.remove(
+                        "is-open"
+                    );
+
+                    event.target.setAttribute(
+                        "aria-hidden",
+                        "true"
+                    );
+
+                    unlockBodyScroll();
+
+                }
+
+            }
+        );
+
+
+        /* =====================================================
+           ESC KEY
+        ===================================================== */
+
+        document.addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.key !== "Escape"
+                ) {
+                    return;
+                }
+
+
+                const openModal =
+                    document.querySelector(
+                        ".modal-overlay.is-open"
+                    );
+
+
+                if (!openModal) {
+                    return;
+                }
+
+
+                openModal.classList.remove(
+                    "is-open"
+                );
+
+
+                openModal.setAttribute(
+                    "aria-hidden",
+                    "true"
+                );
+
+
+                unlockBodyScroll();
+
+            }
+        );
+
+    </script>
+
+</div>

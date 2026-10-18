@@ -1,0 +1,36 @@
+{% extends "layout/base.html" %}
+
+{% block title %}
+
+    {% if active_menu == "users" %}
+        Manajemen Akun - {{ app_name }}
+
+    {% elif active_menu == "modul-2" %}
+        Modul 2: Invoice & Dokumen Turunan - {{ app_name }}
+
+    {% else %}
+        Dashboard - {{ app_name }}
+    {% endif %}
+
+{% endblock %}
+
+
+{% block content %}
+
+    {% if active_menu == "users" %}
+
+        {% include "security/users.html" %}
+
+
+    {% elif active_menu == "modul-2" %}
+
+        {% include "modul_2.html" %}
+
+
+    {% else %}
+
+        {% include "dashboard_content.html" %}
+
+    {% endif %}
+
+{% endblock %}

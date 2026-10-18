@@ -1,0 +1,39 @@
+{% extends "layout/base.html" %}
+
+{% block title %}
+{{ title }}
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <div>
+        <div class="module-code">
+            {{ module_code }}
+        </div>
+
+        <h1>{{ title }}</h1>
+
+        <p>{{ description }}</p>
+    </div>
+
+</div>
+
+
+<div class="placeholder-card">
+
+    <div class="placeholder-icon">
+        ⚙
+    </div>
+
+    <h2>Modul sedang dalam proses migrasi</h2>
+
+    <p>
+        Struktur routing sudah aktif.
+        Logic dan database modul akan ditambahkan pada tahap berikutnya.
+    </p>
+
+</div>
+
+{% endblock %}

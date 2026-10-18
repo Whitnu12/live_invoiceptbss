@@ -1,0 +1,1952 @@
+{# ============================================================
+   BSS — HOME DASHBOARD
+   Dashboard content only.
+   layout.html remains responsible for sidebar/header/navigation.
+   ============================================================ #}
+
+<style>
+/* ============================================================
+   SCOPE ALL STYLES TO THE DASHBOARD
+   This avoids collisions with layout.html.
+   ============================================================ */
+.bss-dashboard{
+    --bss-bg:#f6f8fb;
+    --bss-card:#ffffff;
+    --bss-line:#e6eaf0;
+    --bss-text:#172033;
+    --bss-muted:#667085;
+    --bss-blue:#175cd3;
+    --bss-blue-soft:#eff4ff;
+    --bss-green:#15803d;
+    --bss-green-soft:#ecfdf3;
+    --bss-orange:#b54708;
+    --bss-orange-soft:#fffaeb;
+    --bss-red:#b42318;
+    --bss-red-soft:#fef3f2;
+    --bss-shadow:0 6px 20px rgba(16,24,40,.05);
+
+    width:100%;
+    max-width:1600px;
+    margin:0 auto;
+    padding:26px 28px 40px;
+    color:var(--bss-text);
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+
+.bss-dashboard *,
+.bss-dashboard *::before,
+.bss-dashboard *::after{box-sizing:border-box}
+
+.bss-page-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.bss-eyebrow{
+    color:var(--bss-blue);
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+}
+
+.bss-page-head h1{
+    margin:0;
+    color:var(--bss-text);
+    font-size:28px;
+    line-height:1.15;
+    font-weight:800;
+    letter-spacing:-.025em;
+}
+
+.bss-page-head p{
+    margin:7px 0 0;
+    color:var(--bss-muted);
+    font-size:13px;
+}
+
+.bss-refresh{
+    border:1px solid var(--bss-line);
+    background:#fff;
+    color:var(--bss-text);
+    border-radius:9px;
+    padding:9px 13px;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.bss-refresh:hover{
+    border-color:#b7c2d0;
+    background:#f9fafb;
+}
+.bss-refresh:disabled{opacity:.65;cursor:wait}
+.bss-dashboard-nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:0 0 14px;border-bottom:1px solid var(--bss-line)}
+.bss-dashboard-nav a{display:inline-flex;align-items:center;min-height:34px;padding:7px 11px;border:1px solid var(--bss-line);border-radius:8px;background:#fff;color:#344054;text-decoration:none;font-size:11px;font-weight:700;transition:background .15s ease,border-color .15s ease,color .15s ease}
+.bss-dashboard-nav a:hover,.bss-dashboard-nav a:focus-visible{border-color:#84adf9;background:var(--bss-blue-soft);color:var(--bss-blue);outline:none}
+.bss-dashboard-nav a:focus-visible,.bss-refresh:focus-visible,.bss-search:focus-visible{box-shadow:0 0 0 3px #eaf1ff}
+.bss-followup{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;margin:12px 0 0;border:1px solid #fedf89;border-radius:9px;background:#fffaeb;color:#7a2e0e;font-size:11px;line-height:1.5}
+.bss-followup.ok{border-color:#abefc6;background:#ecfdf3;color:#05603a}
+.bss-followup strong{font-weight:800}
+.bss-contract-result{margin:0 0 10px;color:var(--bss-muted);font-size:11px}
+.bss-dashboard [id]{scroll-margin-top:24px}
+
+/* Material-inspired feedback: crisp surfaces, restrained elevation, clear focus. */
+.bss-kpi,.bss-panel{border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.035)}
+.bss-kpi{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.bss-kpi:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(16,24,40,.09);border-color:#cbd5e1}
+.bss-po-chart-card,.bss-po-table-card,.bss-chart-card{border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.035);transition:box-shadow .18s ease,border-color .18s ease}
+.bss-po-chart-card:hover,.bss-po-table-card:hover,.bss-chart-card:hover{border-color:#cbd5e1;box-shadow:0 8px 20px rgba(16,24,40,.09)}
+.bss-donut{cursor:help;transition:filter .18s ease,transform .18s ease}
+.bss-donut:hover,.bss-donut:focus-visible{filter:drop-shadow(0 5px 9px rgba(23,92,211,.2));transform:scale(1.025);outline:none}
+.bss-bar-row{padding:3px;border-radius:8px;transition:background .15s ease}
+.bss-bar-row:hover{background:#f4f7fc}
+.bss-bar-fill,.bss-category-fill,.bss-contract-fill{transition:filter .15s ease}
+.bss-bar-row:hover .bss-bar-fill,.bss-category-row:hover .bss-category-fill,.bss-category-row:focus-visible .bss-category-fill,.bss-contract-row:hover .bss-contract-fill,.bss-contract-row:focus-visible .bss-contract-fill{filter:brightness(1.12)}
+.bss-category-row,.bss-contract-row{border-radius:8px;transition:background .15s ease}
+.bss-category-row:hover,.bss-category-row:focus-visible,.bss-contract-row:hover,.bss-contract-row:focus-visible{background:#f4f7fc;outline:none}
+.bss-svg{overflow:visible}
+.bss-svg [data-trend-period]{cursor:pointer;transition:r .15s ease,fill .15s ease,filter .15s ease}
+.bss-svg [data-trend-period]:hover,.bss-svg [data-trend-period]:focus-visible{filter:drop-shadow(0 2px 4px rgba(23,92,211,.3));outline:none}
+.bss-chart-tooltip{position:fixed;z-index:1000;display:none;max-width:min(280px,calc(100vw - 24px));padding:10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:#172033;color:#fff;box-shadow:0 10px 28px rgba(16,24,40,.22);pointer-events:none;font-size:11px;line-height:1.45;white-space:pre-line}
+.bss-chart-tooltip.show{display:block}
+.bss-chart-tooltip strong{display:block;margin-bottom:3px;font-size:11px;font-weight:800}
+.bss-chart-tooltip span{display:block;color:#d0d5dd}
+.bss-op-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.bss-finance-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.bss-op-kpi,.bss-finance-kpi{padding:13px 14px;border:1px solid var(--bss-line);border-radius:12px;background:#fff}
+.bss-op-kpi-label,.bss-finance-kpi-label{color:var(--bss-muted);font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.bss-op-kpi-value,.bss-finance-kpi-value{margin-top:6px;color:var(--bss-text);font-size:19px;font-weight:800;letter-spacing:-.02em;overflow-wrap:anywhere}
+.bss-op-kpi-note,.bss-finance-kpi-note{margin-top:3px;color:var(--bss-muted);font-size:10px;line-height:1.4}
+.bss-op-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:14px}
+.bss-op-card,.bss-finance-card{min-width:0;padding:14px;border:1px solid var(--bss-line);border-radius:14px;background:#fff}
+.bss-op-card h3,.bss-finance-card h3{margin:0;font-size:12px}
+.bss-op-card>p,.bss-finance-card>p{margin:4px 0 12px;color:var(--bss-muted);font-size:10px;line-height:1.45}
+.bss-progress-list{display:grid;gap:9px}
+.bss-progress-row{display:grid;grid-template-columns:minmax(100px,150px) minmax(70px,1fr) 44px;align-items:center;gap:9px;width:100%;padding:6px;border:0;border-radius:8px;background:transparent;text-align:left;color:inherit;font:inherit;cursor:pointer}
+.bss-progress-row:hover,.bss-progress-row:focus-visible{background:#f4f7fc;outline:none}
+.bss-progress-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:750}
+.bss-progress-track,.bss-aging-track{height:9px;border-radius:99px;background:#eef2f6;overflow:hidden}
+.bss-progress-fill,.bss-aging-fill{height:100%;border-radius:inherit;background:#175cd3;transition:filter .15s ease}
+.bss-progress-row:hover .bss-progress-fill{filter:brightness(1.12)}
+.bss-progress-value{text-align:right;font-size:10px;font-weight:800;color:#475467}
+.bss-quality-list{display:grid;gap:8px}
+.bss-quality-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 10px;border:1px solid #edf0f4;border-radius:9px;background:#fafbfc;font-size:10px}
+.bss-quality-row span{color:var(--bss-muted)}.bss-quality-row strong{color:var(--bss-text);text-align:right}
+.bss-mapping-list{display:grid;gap:7px;margin-top:11px}
+.bss-mapping-item{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 9px;border:1px solid #fedf89;border-radius:8px;background:#fffaeb;color:#7a2e0e;font-size:10px}
+.bss-mapping-item strong{display:block}.bss-mapping-item span{color:#93370d}
+.bss-aging-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:10px 0 15px}
+.bss-aging-item{min-width:0;padding:10px;border:1px solid var(--bss-line);border-radius:11px;background:#fff;text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+.bss-aging-item:hover,.bss-aging-item:focus-visible,.bss-aging-item.active{border-color:#84adf9;background:#f7faff;outline:none;transform:translateY(-1px)}
+.bss-aging-head{display:flex;justify-content:space-between;gap:6px;align-items:center;font-size:10px;font-weight:800}.bss-aging-head span:last-child{color:var(--bss-muted)}
+.bss-aging-track{margin:9px 0 7px;height:7px}.bss-aging-fill.overdue{background:#d92d20}.bss-aging-fill.due{background:#f79009}.bss-aging-fill.open{background:#175cd3}.bss-aging-fill.paid{background:#12b76a}
+.bss-aging-amount{font-size:10px;font-weight:750;color:#344054;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bss-finance-table-wrap{overflow:auto}.bss-finance-table{width:100%;min-width:760px;border-collapse:collapse;font-size:10px}.bss-finance-table th{padding:9px;background:#fafbfc;color:var(--bss-muted);font-size:9px;text-align:left;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}.bss-finance-table td{padding:9px;border-top:1px solid #edf0f4;vertical-align:middle}.bss-finance-table .num{text-align:right;white-space:nowrap}.bss-finance-table tbody tr:hover{background:#f8fbff}
+.bss-finance-empty{padding:14px 10px;border:1px dashed #d0d5dd;border-radius:9px;color:var(--bss-muted);font-size:11px;text-align:center}
+.bss-data-note{margin:0 0 12px;padding:9px 11px;border:1px solid #c7d7fe;border-radius:9px;background:#eff4ff;color:#1849a9;font-size:10px;line-height:1.5}
+
+.bss-alert{
+    display:none;
+    margin-bottom:14px;
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:12px;
+}
+.bss-alert.show{display:block}
+.bss-alert.info{background:var(--bss-blue-soft);color:#1849a9;border:1px solid #c7d7fe}
+.bss-alert.error{background:var(--bss-red-soft);color:var(--bss-red);border:1px solid #fecdca}
+
+/* ============================================================
+   KPI
+   ============================================================ */
+.bss-kpis{
+    display:grid;
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:12px;
+    margin-bottom:16px;
+}
+
+.bss-kpi{
+    background:var(--bss-card);
+    border:1px solid var(--bss-line);
+    border-radius:14px;
+    padding:16px;
+    box-shadow:var(--bss-shadow);
+}
+.bss-kpi-label{line-height:1.35}
+
+.bss-kpi-label{
+    color:var(--bss-muted);
+    font-size:10px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+}
+
+.bss-kpi-value{
+    margin-top:9px;
+    font-size:25px;
+    font-weight:800;
+    letter-spacing:-.02em;
+}
+
+.bss-kpi-meta{
+    margin-top:3px;
+    color:var(--bss-muted);
+    font-size:10px;
+}
+
+.bss-kpi.accent-blue{border-top:3px solid var(--bss-blue)}
+.bss-kpi.accent-green{border-top:3px solid var(--bss-green)}
+.bss-kpi.accent-orange{border-top:3px solid #d97706}
+.bss-kpi.accent-slate{border-top:3px solid #64748b}
+
+.bss-command-strip{
+    display:grid;
+    grid-template-columns:1.35fr repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin-bottom:16px;
+}
+.bss-signal{
+    border:1px solid var(--bss-line);
+    border-radius:11px;
+    background:#fff;
+    padding:12px 14px;
+}
+.bss-signal-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--bss-muted)}
+.bss-signal-value{margin-top:5px;font-size:16px;font-weight:800;color:var(--bss-text)}
+.bss-signal-note{margin-top:3px;font-size:10px;color:var(--bss-muted)}
+.bss-signal.lead{background:#172033;color:#fff;border-color:#172033}
+.bss-signal.lead .bss-signal-label,.bss-signal.lead .bss-signal-note{color:#cbd5e1}
+.bss-signal.lead .bss-signal-value{color:#fff}
+
+/* ============================================================
+   PANELS
+   ============================================================ */
+.bss-panel{
+    background:var(--bss-card);
+    border:1px solid var(--bss-line);
+    border-radius:14px;
+    box-shadow:var(--bss-shadow);
+    overflow:hidden;
+    margin-bottom:16px;
+}
+
+.bss-panel-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:15px;
+    padding:16px 18px;
+    border-bottom:1px solid var(--bss-line);
+}
+
+.bss-panel-title{
+    margin:0;
+    font-size:14px;
+    font-weight:800;
+}
+
+.bss-panel-desc{
+    margin:4px 0 0;
+    color:var(--bss-muted);
+    font-size:11px;
+}
+
+.bss-panel-body{padding:16px 18px}
+
+/* ============================================================
+   CONTRACT MONITOR
+   ============================================================ */
+.bss-toolbar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.bss-search{
+    width:280px;
+    max-width:100%;
+    border:1px solid var(--bss-line);
+    background:#fff;
+    border-radius:8px;
+    padding:8px 10px;
+    font:inherit;
+    font-size:11px;
+    outline:none;
+}
+
+.bss-search:focus{
+    border-color:#84adf9;
+    box-shadow:0 0 0 3px #eaf1ff;
+}
+
+.bss-table-wrap{
+    width:100%;
+    overflow:auto;
+}
+
+.bss-table{
+    width:100%;
+    min-width:980px;
+    border-collapse:collapse;
+}
+
+.bss-table th{
+    padding:10px 11px;
+    background:#fafbfc;
+    color:#667085;
+    border-bottom:1px solid var(--bss-line);
+    text-align:left;
+    font-size:9px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.055em;
+    white-space:nowrap;
+}
+
+.bss-table td{
+    padding:11px;
+    border-bottom:1px solid #eef1f5;
+    vertical-align:middle;
+    font-size:11px;
+}
+
+.bss-table tbody tr{
+    cursor:pointer;
+    transition:background .15s ease;
+}
+
+.bss-table tbody tr:hover{background:#f8fbff}
+.bss-table tbody tr.active{background:#eef5ff}
+
+.bss-contract-no{
+    color:var(--bss-text);
+    font-weight:800;
+}
+
+.bss-contract-title{
+    max-width:260px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.bss-muted{color:var(--bss-muted)}
+
+.bss-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:4px 7px;
+    border-radius:999px;
+    font-size:9px;
+    font-weight:800;
+    white-space:nowrap;
+}
+
+.bss-badge.ok{background:var(--bss-green-soft);color:var(--bss-green)}
+.bss-badge.warn{background:var(--bss-orange-soft);color:var(--bss-orange)}
+.bss-badge.neutral{background:#f2f4f7;color:#475467}
+
+/* ============================================================
+   SELECTED CONTRACT DETAIL
+   ============================================================ */
+.bss-detail{
+    display:grid;
+    grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);
+    gap:16px;
+}
+
+.bss-detail-card{
+    border:1px solid var(--bss-line);
+    border-radius:12px;
+    background:#fff;
+    overflow:hidden;
+}
+
+.bss-detail-head{
+    padding:14px 16px;
+    border-bottom:1px solid var(--bss-line);
+}
+
+.bss-detail-code{
+    color:var(--bss-blue);
+    font-size:9px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+}
+
+.bss-detail-head h3{
+    margin:5px 0 0;
+    font-size:15px;
+}
+
+.bss-detail-head p{
+    margin:4px 0 0;
+    color:var(--bss-muted);
+    font-size:10px;
+}
+
+.bss-detail-body{padding:14px 16px}
+
+.bss-fields{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:9px;
+}
+
+.bss-field{
+    border:1px solid #edf0f4;
+    background:#fafbfc;
+    border-radius:9px;
+    padding:9px 10px;
+}
+
+.bss-field-label{
+    color:#667085;
+    font-size:9px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    font-weight:800;
+}
+
+.bss-field-value{
+    margin-top:3px;
+    color:var(--bss-text);
+    font-size:11px;
+    font-weight:700;
+    word-break:break-word;
+}
+
+.bss-pi-list{
+    display:grid;
+    gap:7px;
+    max-height:340px;
+    overflow:auto;
+}
+
+.bss-pi-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:10px;
+    border:1px solid #edf0f4;
+    border-radius:9px;
+    background:#fafbfc;
+}
+
+.bss-pi-no{
+    font-size:11px;
+    font-weight:800;
+}
+
+.bss-pi-action{
+    border:1px solid #d0d5dd;
+    background:#fff;
+    color:#344054;
+    border-radius:7px;
+    padding:5px 8px;
+    font-size:9px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.bss-pi-action:hover{background:#f9fafb}
+
+.bss-pi-meta{margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.bss-pi-meta span{font-size:9px;color:var(--bss-muted)}
+.bss-pi-progress{height:5px;width:82px;background:#e5e7eb;border-radius:9px;overflow:hidden;display:inline-block;vertical-align:middle}
+.bss-pi-progress i{display:block;height:100%;background:var(--bss-blue);border-radius:inherit}
+.bss-pi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bss-pi-grid .bss-pi-item{align-items:flex-start}
+.bss-pi-grid .bss-pi-action{flex:0 0 auto}
+
+.bss-modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.42)}
+.bss-modal.show{display:flex}
+.bss-modal-card{width:min(760px,100%);max-height:min(700px,calc(100vh - 40px));overflow:auto;background:#fff;border-radius:16px;border:1px solid #dbe3ee;box-shadow:0 20px 60px rgba(15,23,42,.22)}
+.bss-modal-head{display:flex;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--bss-line)}
+.bss-modal-head h3{margin:0;font-size:16px}.bss-modal-head p{margin:4px 0 0;color:var(--bss-muted);font-size:11px}
+.bss-modal-close{border:0;background:#f2f4f7;color:#344054;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:18px}
+.bss-modal-body{padding:18px 20px}.bss-modal-section{margin-top:16px}.bss-modal-section:first-child{margin-top:0}.bss-modal-section h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--bss-muted)}
+.bss-modal-table{width:100%;border-collapse:collapse;font-size:11px}.bss-modal-table td{padding:8px;border-bottom:1px solid #edf0f4;vertical-align:top}.bss-modal-table td:first-child{width:34%;font-weight:700;color:#667085}
+.bss-po-summary{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+.bss-po-chart-card,.bss-po-table-card{border:1px solid var(--bss-line);border-radius:12px;background:#fff;padding:14px}
+.bss-po-chart-card h3,.bss-po-table-card h3{margin:0;font-size:12px}.bss-po-chart-card p,.bss-po-table-card p{margin:4px 0 12px;color:var(--bss-muted);font-size:10px}
+.bss-po-visual{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+.bss-donut{width:142px;height:142px;border-radius:50%;background:conic-gradient(var(--bss-blue) 0deg,#dbeafe 0deg);position:relative;display:grid;place-items:center}
+.bss-donut::after{content:"";width:94px;height:94px;border-radius:50%;background:#fff;position:absolute}
+.bss-donut-label{position:relative;z-index:1;text-align:center}.bss-donut-label strong{display:block;font-size:21px}.bss-donut-label span{font-size:9px;color:var(--bss-muted)}
+.bss-legend{display:grid;gap:7px}.bss-legend-row{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:var(--bss-muted)}.bss-legend-row strong{color:var(--bss-text)}
+.bss-bar-list{display:grid;gap:11px}.bss-bar-row{display:grid;grid-template-columns:92px 1fr 60px;gap:8px;align-items:center;font-size:10px}.bss-bar-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.bss-bar-track{height:9px;border-radius:10px;background:#eef2f6;overflow:hidden}.bss-bar-fill{height:100%;background:var(--bss-blue);border-radius:inherit}.bss-bar-value{text-align:right;color:var(--bss-muted)}
+.bss-po-table-wrap{overflow:auto}.bss-po-table{width:100%;border-collapse:collapse;min-width:680px;font-size:10px}.bss-po-table th{padding:8px;background:#fafbfc;color:var(--bss-muted);font-size:9px;text-transform:uppercase;text-align:left}.bss-po-table td{padding:9px 8px;border-top:1px solid #edf0f4}.bss-po-table tr{cursor:pointer}.bss-po-table tr:hover{background:#f8fbff}.bss-po-table .num{text-align:right;white-space:nowrap}.bss-po-detail{margin-top:12px;padding:12px;border-radius:10px;background:#f8fafc;border:1px solid #e7ecf2}.bss-po-detail h4{margin:0 0 8px;font-size:11px}.bss-po-detail .bss-po-items{max-height:230px;overflow:auto}.bss-po-item{display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr;gap:8px;padding:8px 0;border-top:1px solid #e2e8f0;font-size:10px}.bss-po-item:first-child{border-top:0}.bss-po-item span{color:var(--bss-muted)}
+.bss-analytics-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:16px}.bss-chart-card{border:1px solid var(--bss-line);border-radius:12px;background:#fff;padding:14px;min-width:0}.bss-chart-card.wide{grid-column:1/-1}.bss-chart-card h3{margin:0;font-size:12px}.bss-chart-card p{margin:4px 0 12px;color:var(--bss-muted);font-size:10px}.bss-chart{min-height:190px}.bss-svg{width:100%;height:auto;display:block}.bss-axis-label{font-size:9px;fill:#98a2b3}.bss-chart-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--bss-muted)}.bss-chart-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}.bss-category-bars{display:grid;gap:11px}.bss-category-row{display:grid;grid-template-columns:135px 1fr 88px;align-items:center;gap:8px;font-size:10px}.bss-category-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.bss-category-track{height:10px;background:#eef2f6;border-radius:8px;overflow:hidden}.bss-category-fill{height:100%;border-radius:inherit;background:#175cd3}.bss-category-fill.volume{background:#0f766e}.bss-category-value{text-align:right;color:var(--bss-muted);white-space:nowrap}.bss-contract-chart{display:grid;gap:12px}.bss-contract-row{display:grid;grid-template-columns:112px 1fr 76px;gap:9px;align-items:center}.bss-contract-label{font-size:10px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bss-contract-bars{display:grid;gap:4px}.bss-contract-track{height:7px;background:#eef2f6;border-radius:8px;overflow:hidden}.bss-contract-fill{height:100%;border-radius:inherit}.bss-contract-fill.cap{background:#284690}.bss-contract-fill.real{background:#f5b700}.bss-contract-pct{text-align:right;font-size:10px;font-weight:800;color:#475467}.bss-contract-legend{display:flex;gap:14px;margin-top:12px;font-size:10px;color:var(--bss-muted)}.bss-contract-legend i{display:inline-block;width:9px;height:9px;margin-right:4px;border-radius:2px;vertical-align:-1px}
+
+.bss-category-row,.bss-contract-row{border:0;background:transparent;text-align:left;font-family:inherit;width:100%;padding:0;color:inherit}.bss-category-row{cursor:pointer}.bss-category-row:hover .bss-category-label,.bss-category-row:focus-visible .bss-category-label,.bss-contract-row:hover .bss-contract-label,.bss-contract-row:focus-visible .bss-contract-label{color:var(--bss-blue)}
+.bss-analytics-focus{margin-top:16px;border-top:1px solid var(--bss-line);padding-top:14px}.bss-focus-empty{padding:14px 0;color:var(--bss-muted);font-size:11px}.bss-focus-notice{margin:10px 0;padding:9px 11px;border:1px solid #fecdca;background:#fffbfa;border-radius:8px;color:#b42318;font-size:10px;line-height:1.45}.bss-focus-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.bss-focus-head h3{margin:0;font-size:13px}.bss-focus-head p{margin:4px 0 0;color:var(--bss-muted);font-size:10px}.bss-focus-reset{border:1px solid var(--bss-line);background:#fff;color:#344054;border-radius:7px;padding:7px 10px;font:inherit;font-size:10px;font-weight:700;cursor:pointer}.bss-focus-summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.bss-focus-stat{padding:8px 10px;background:#f8fafc;border:1px solid #e7ecf2;border-radius:8px;min-width:120px}.bss-focus-stat span{display:block;color:var(--bss-muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}.bss-focus-stat strong{display:block;margin-top:3px;font-size:12px}.bss-focus-table-wrap{overflow:auto}.bss-focus-table{width:100%;border-collapse:collapse;min-width:620px;font-size:10px}.bss-focus-table th{text-align:left;padding:8px;background:#fafbfc;color:var(--bss-muted);font-size:9px;text-transform:uppercase}.bss-focus-table td{padding:8px;border-top:1px solid #edf0f4}.bss-focus-table .num{text-align:right;white-space:nowrap}.bss-focus-link{border:0;background:none;padding:0;color:var(--bss-blue);font:inherit;font-weight:800;cursor:pointer}
+
+.bss-empty{
+    padding:24px 10px;
+    color:var(--bss-muted);
+    text-align:center;
+    font-size:11px;
+}
+
+.bss-count{
+    display:inline-flex;
+    align-items:center;
+    min-width:24px;
+    justify-content:center;
+    padding:3px 7px;
+    border-radius:999px;
+    background:var(--bss-blue-soft);
+    color:var(--bss-blue);
+    font-size:9px;
+    font-weight:800;
+}
+
+.bss-loading{color:#98a2b3}
+
+.bss-footer{
+    color:#98a2b3;
+    font-size:9px;
+    padding:0 2px;
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+}
+
+@media(max-width:1050px){
+    .bss-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .bss-command-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .bss-detail{grid-template-columns:1fr}
+    .bss-po-summary{grid-template-columns:1fr}
+    .bss-op-layout{grid-template-columns:1fr}
+    .bss-analytics-grid{grid-template-columns:1fr}.bss-chart-card.wide{grid-column:auto}
+}
+
+@media(max-width:700px){
+    .bss-dashboard{padding:18px 14px 30px}
+    .bss-page-head{align-items:flex-start}
+    .bss-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .bss-kpi{padding:12px;border-radius:11px}
+    .bss-kpi-value{font-size:20px}
+    .bss-kpi-label{font-size:9px}
+    .bss-command-strip{grid-template-columns:1fr}
+    .bss-op-kpis,.bss-finance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .bss-aging-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .bss-page-head h1{font-size:24px}
+    .bss-fields{grid-template-columns:1fr}
+    .bss-pi-grid{grid-template-columns:1fr}
+    .bss-po-visual{grid-template-columns:1fr}.bss-donut{margin:0 auto}
+    .bss-category-row{grid-template-columns:100px 1fr 70px}.bss-contract-row{grid-template-columns:90px 1fr 58px}
+}
+@media(max-width:380px){.bss-kpis{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.bss-dashboard *, .bss-dashboard *::before, .bss-dashboard *::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+</style>
+
+<div class="bss-dashboard">
+
+    <!-- ========================================================
+         PAGE HEADER
+         ======================================================== -->
+    <div class="bss-page-head">
+        <div>
+            <div class="bss-eyebrow">BSS / RINGKASAN OPERASIONAL</div>
+            <h1>Dashboard</h1>
+            <p>
+                Selamat datang, <strong>{{ user.nama or user.username }}</strong>.
+                Pantau kontrak, Proforma Invoice, dan realisasi pekerjaan dalam satu tampilan.
+            </p>
+        </div>
+
+        <button type="button" class="bss-refresh" id="bssRefresh">
+            ↻ Perbarui data
+        </button>
+    </div>
+
+    <nav class="bss-dashboard-nav" aria-label="Pintasan bagian dashboard">
+        <a href="#bssOverview">Ringkasan</a>
+        <a href="#bssBudget">Anggaran PO</a>
+        <a href="#bssOperations">Progres & dokumen</a>
+        <a href="#bssFinance">Keuangan</a>
+        <a href="#bssAnalytics">Analitik</a>
+        <a href="#bssContracts">Daftar kontrak</a>
+    </nav>
+
+    <div id="bssAlert" class="bss-alert"></div>
+
+    <!-- ========================================================
+         KPI — FOKUS DATA PROJECT
+         ======================================================== -->
+    <section class="bss-kpis" id="bssOverview" aria-label="Indikator utama">
+
+        <div class="bss-kpi accent-blue">
+            <div class="bss-kpi-label">Total Kontrak</div>
+            <div id="bssTotalContracts" class="bss-kpi-value bss-loading">—</div>
+            <div class="bss-kpi-meta">Nomor kontrak unik</div>
+        </div>
+
+        <div class="bss-kpi accent-green">
+            <div class="bss-kpi-label">Total PI</div>
+            <div id="bssTotalPI" class="bss-kpi-value bss-loading">—</div>
+            <div class="bss-kpi-meta">Proforma Invoice terdaftar</div>
+        </div>
+
+        <div class="bss-kpi accent-green">
+            <div class="bss-kpi-label">Kontrak Dengan PI</div>
+            <div id="bssContractsWithPI" class="bss-kpi-value bss-loading">—</div>
+            <div class="bss-kpi-meta">Kontrak yang memiliki PI</div>
+        </div>
+
+        <div class="bss-kpi accent-orange">
+            <div class="bss-kpi-label">Kontrak Tanpa PI</div>
+            <div id="bssContractsWithoutPI" class="bss-kpi-value bss-loading">—</div>
+            <div class="bss-kpi-meta">Perlu pemeriksaan lebih lanjut</div>
+        </div>
+        <div class="bss-kpi accent-slate">
+            <div class="bss-kpi-label">Total PO</div>
+            <div id="bssTotalPO" class="bss-kpi-value bss-loading">—</div>
+            <div class="bss-kpi-meta">Nomor PO unik dari PI</div>
+        </div>
+        <div class="bss-kpi accent-blue">
+            <div class="bss-kpi-label">Rata-rata progres</div>
+            <div id="bssAvgProgress" class="bss-kpi-value bss-loading">—</div>
+            <div class="bss-kpi-meta">Rata-rata PI dengan progres terisi</div>
+        </div>
+    </section>
+
+    <section class="bss-command-strip" aria-label="Kelengkapan data dan tindak lanjut">
+        <div class="bss-signal lead">
+            <div class="bss-signal-label">Prioritas tindak lanjut</div>
+            <div id="bssPulseValue" class="bss-signal-value">Menyiapkan ringkasan…</div>
+            <div id="bssPulseNote" class="bss-signal-note">Memeriksa kelengkapan data kontrak dan PI.</div>
+        </div>
+        <div class="bss-signal"><div class="bss-signal-label">PI dengan WCC</div><div id="bssWithWcc" class="bss-signal-value">—</div><div class="bss-signal-note">Dari seluruh PI terdaftar</div></div>
+        <div class="bss-signal"><div class="bss-signal-label">PI dengan WO</div><div id="bssWithWo" class="bss-signal-value">—</div><div class="bss-signal-note">Dari seluruh PI terdaftar</div></div>
+        <div class="bss-signal"><div class="bss-signal-label">PI tanpa rincian transaksi</div><div id="bssWithoutTx" class="bss-signal-value">—</div><div class="bss-signal-note">Periksa rincian pekerjaan</div></div>
+        <div class="bss-signal"><div class="bss-signal-label">Nilai transaksi</div><div id="bssTxTotal" class="bss-signal-value">—</div><div class="bss-signal-note">Akumulasi dari seluruh PI</div></div>
+    </section>
+
+    <div class="bss-followup" id="bssFollowup" role="status" aria-live="polite">
+        <span aria-hidden="true">ⓘ</span><span>Menyiapkan ringkasan kelengkapan data…</span>
+    </div>
+
+    <section class="bss-panel" id="bssBudget">
+        <div class="bss-panel-head">
+            <div>
+                <h2 class="bss-panel-title">Anggaran PO dan realisasi</h2>
+                <p class="bss-panel-desc">Bandingkan plafon PO, nilai transaksi yang sudah terpetakan, sisa anggaran, dan rincian item pekerjaan.</p>
+            </div>
+            <span id="bssPoCount" class="bss-count">0 PO</span>
+        </div>
+        <div class="bss-panel-body" id="bssPoState">
+            <div class="bss-empty">Memuat ringkasan PO dan realisasi...</div>
+        </div>
+    </section>
+
+    <section class="bss-panel" id="bssOperations">
+        <div class="bss-panel-head">
+            <div>
+                <h2 class="bss-panel-title">Progres dan kesiapan dokumen</h2>
+                <p class="bss-panel-desc">Pantau progres PI, kelengkapan referensi WCC/WO, rincian transaksi, dan realisasi PO yang belum terpetakan.</p>
+            </div>
+            <span class="bss-count">Operasional</span>
+        </div>
+        <div class="bss-panel-body" id="bssOperationsState">
+            <div class="bss-empty">Menghitung progres dan kelengkapan data…</div>
+        </div>
+    </section>
+
+    <section class="bss-panel" id="bssFinance">
+        <div class="bss-panel-head">
+            <div>
+                <h2 class="bss-panel-title">Invoice, piutang, dan umur tagihan</h2>
+                <p class="bss-panel-desc">Ringkasan invoice resmi dan monitoring pembayaran. Arahkan kursor ke kelompok umur tagihan untuk melihat nilai dan jumlah invoice.</p>
+            </div>
+            <span id="bssInvoiceCount" class="bss-count">Memuat…</span>
+        </div>
+        <div class="bss-panel-body" id="bssFinanceState">
+            <div class="bss-empty">Memuat ringkasan invoice dan pembayaran…</div>
+        </div>
+    </section>
+
+    <section class="bss-panel" id="bssAnalytics">
+        <div class="bss-panel-head">
+            <div>
+                <h2 class="bss-panel-title">Analitik pekerjaan</h2>
+                <p class="bss-panel-desc">Lihat tren PI, biaya dan volume per kategori, serta serapan kontrak. Pilih bagian grafik untuk melihat rinciannya.</p>
+            </div>
+            <span class="bss-count">Ringkasan data</span>
+        </div>
+        <div class="bss-panel-body">
+            <div id="bssAnalyticsState" class="bss-analytics-grid">
+                <div class="bss-chart-empty">Memuat grafik analitik...</div>
+            </div>
+            <div id="bssAnalyticsFocus" class="bss-analytics-focus" aria-live="polite">
+                <div class="bss-focus-empty">Pilih kategori, periode, atau kontrak pada grafik untuk membuka rincian realisasi.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================================================
+         CONTRACT MONITOR
+         ======================================================== -->
+    <section class="bss-panel" id="bssContracts">
+
+        <div class="bss-panel-head">
+            <div>
+                <h2 class="bss-panel-title">Daftar kontrak</h2>
+                <p class="bss-panel-desc">
+                    Cari kontrak berdasarkan nomor, judul, atau tender. Pilih baris untuk melihat PI terkait.
+                </p>
+            </div>
+
+            <div class="bss-toolbar">
+                <input
+                    id="bssContractSearch"
+                    class="bss-search"
+                    type="search"
+                    placeholder="Cari nomor kontrak, judul, atau tender…"
+                    autocomplete="off"
+                >
+            </div>
+        </div>
+
+        <div id="bssContractState" class="bss-panel-body">
+            <div class="bss-empty">Memuat data kontrak...</div>
+        </div>
+
+    </section>
+
+    <!-- ========================================================
+         SELECTED CONTRACT
+         ======================================================== -->
+    <section class="bss-panel">
+
+        <div class="bss-panel-head">
+            <div>
+                <h2 class="bss-panel-title">Detail kontrak terpilih</h2>
+                <p class="bss-panel-desc">
+                    Detail master kontrak dan daftar Proforma Invoice.
+                </p>
+            </div>
+
+            <span id="bssSelectedPI" class="bss-count">0 PI</span>
+        </div>
+
+        <div id="bssDetailState" class="bss-panel-body">
+            <div class="bss-empty">
+                Pilih salah satu kontrak pada Contract Monitor.
+            </div>
+        </div>
+
+    </section>
+
+    <div class="bss-footer">
+        <span>{{ app_name }}</span>
+        <span>Versi {{ app_version }} · Data diperbarui <span id="bssLastRefresh">—</span></span>
+    </div>
+
+</div>
+
+<div class="bss-modal" id="bssPiModal" role="dialog" aria-modal="true" aria-labelledby="bssPiModalTitle">
+    <div class="bss-modal-card">
+        <div class="bss-modal-head">
+            <div><h3 id="bssPiModalTitle">Detail Proforma Invoice</h3><p id="bssPiModalSubtitle">—</p></div>
+            <button type="button" class="bss-modal-close" id="bssPiModalClose" aria-label="Tutup">×</button>
+        </div>
+        <div class="bss-modal-body" id="bssPiModalBody"><div class="bss-empty">Memuat detail…</div></div>
+    </div>
+</div>
+
+<script>
+(function(){
+    'use strict';
+
+    const $ = id => document.getElementById(id);
+
+    let contracts = [];
+    let selectedContract = '';
+    let piCache = {};
+    let poRecords = [];
+    let analyticsSnapshot = {categories:[], trend:[], items:[], contracts:[]};
+    let piRecords = [];
+    let unmappedRecords = [];
+    let mappingAvailable = false;
+    let documentSnapshot = {available:false,tkdn_saved_pi:null,opname_saved_pi:null};
+    let financeSnapshot = {invoices:[], available:false, filter:'overdue'};
+    let isRefreshing = false;
+
+    function esc(value){
+        return String(value ?? '')
+            .replaceAll('&','&amp;')
+            .replaceAll('<','&lt;')
+            .replaceAll('>','&gt;')
+            .replaceAll('"','&quot;')
+            .replaceAll("'","&#039;");
+    }
+
+    function clean(value){
+        return String(value ?? '').trim();
+    }
+
+    function fmt(value){
+        return Number(value || 0).toLocaleString('id-ID');
+    }
+
+    function num(value){
+        const raw = String(value ?? '').trim().replace('%','');
+        const normalized = raw.includes(',')
+            ? raw.replaceAll('.','').replace(',','.')
+            : raw.replaceAll(',','');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function money(value){
+        return num(value).toLocaleString('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
+    }
+
+    function showAlert(message, type='info'){
+        const el = $('bssAlert');
+        if(!el) return;
+
+        el.textContent = message || '';
+        el.className = 'bss-alert ' + type + (message ? ' show' : '');
+
+        if(message){
+            setTimeout(() => {
+                el.className = 'bss-alert';
+            }, 3000);
+        }
+    }
+
+    async function getJson(url){
+        const response = await fetch(url, {
+            method:'GET',
+            credentials:'same-origin',
+            headers:{'Accept':'application/json'}
+        });
+
+        let json = {};
+        try{
+            json = await response.json();
+        }catch(error){}
+
+        if(!response.ok || json.success === false){
+            throw new Error(json.message || ('HTTP ' + response.status));
+        }
+
+        return json;
+    }
+
+    let chartTooltip = null;
+    let activeTooltipTarget = null;
+    let renderedTooltipTarget = null;
+    function ensureChartTooltip(){
+        if(chartTooltip) return chartTooltip;
+        chartTooltip = document.createElement('div');
+        chartTooltip.id = 'bssChartTooltip';
+        chartTooltip.className = 'bss-chart-tooltip';
+        chartTooltip.setAttribute('role','tooltip');
+        document.body.appendChild(chartTooltip);
+        return chartTooltip;
+    }
+
+    function positionChartTooltip(target, event){
+        const tooltip = ensureChartTooltip();
+        if(renderedTooltipTarget !== target){
+            tooltip.replaceChildren();
+            const title = document.createElement('strong');
+            title.textContent = target.dataset.chartTipTitle || 'Rincian';
+            const detail = document.createElement('span');
+            detail.textContent = String(target.dataset.chartTipDetail || '').replaceAll('\\n','\n');
+            tooltip.append(title, detail);
+            renderedTooltipTarget = target;
+        }
+        target.setAttribute('aria-describedby','bssChartTooltip');
+        tooltip.classList.add('show');
+        const rect = target.getBoundingClientRect();
+        const pointX = Number.isFinite(event?.clientX) && event.clientX ? event.clientX : rect.left + rect.width / 2;
+        const pointY = Number.isFinite(event?.clientY) && event.clientY ? event.clientY : rect.bottom;
+        const tipRect = tooltip.getBoundingClientRect();
+        const left = Math.max(12, Math.min(pointX + 14, window.innerWidth - tipRect.width - 12));
+        const top = pointY + tipRect.height + 18 > window.innerHeight
+            ? Math.max(12, pointY - tipRect.height - 12)
+            : Math.max(12, pointY + 12);
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+    }
+
+    function hideChartTooltip(){
+        if(chartTooltip) chartTooltip.classList.remove('show');
+        activeTooltipTarget?.removeAttribute('aria-describedby');
+        activeTooltipTarget = null;
+        renderedTooltipTarget = null;
+    }
+
+    document.addEventListener('pointerover', event => {
+        const target = event.target.closest?.('[data-chart-tip-title]');
+        if(!target || !document.querySelector('.bss-dashboard')?.contains(target)) return;
+        activeTooltipTarget = target;
+        positionChartTooltip(target, event);
+    });
+    document.addEventListener('pointermove', event => {
+        if(activeTooltipTarget && activeTooltipTarget.contains(event.target)) positionChartTooltip(activeTooltipTarget, event);
+    });
+    document.addEventListener('pointerout', event => {
+        if(activeTooltipTarget && !activeTooltipTarget.contains(event.relatedTarget)) hideChartTooltip();
+    });
+    document.addEventListener('focusin', event => {
+        const target = event.target.closest?.('[data-chart-tip-title]');
+        if(!target || !document.querySelector('.bss-dashboard')?.contains(target)) return;
+        activeTooltipTarget = target;
+        positionChartTooltip(target);
+    });
+    document.addEventListener('focusout', event => {
+        if(activeTooltipTarget && !activeTooltipTarget.contains(event.relatedTarget)) hideChartTooltip();
+    });
+    window.addEventListener('scroll', hideChartTooltip, true);
+    window.addEventListener('resize', hideChartTooltip);
+
+    function setKpi(id, value){
+        const el = $(id);
+        if(!el) return;
+        el.textContent = fmt(value);
+        el.classList.remove('bss-loading');
+    }
+
+    async function loadPOs(){
+        const state = $('bssPoState');
+        try{
+            const result = await getJson('/master-po/api?per_page=100');
+            poRecords = Array.isArray(result.data) ? result.data.filter(po => {
+                const status = clean(po.status_po).toUpperCase();
+                return status !== 'CANCELLED' && status !== 'CANCELED' && status !== 'DELETED';
+            }) : [];
+            renderPOOverview();
+        }catch(error){
+            poRecords = [];
+            state.innerHTML = '<div class="bss-empty">Data PO dan realisasi belum tersedia: ' + esc(error.message) + '</div>';
+            $('bssPoCount').textContent = 'Tidak tersedia';
+        }
+    }
+
+    function renderPOOverview(){
+        const state = $('bssPoState');
+        const valid = poRecords.filter(po => clean(po.nomor_po));
+        const plafond = valid.reduce((sum, po) => sum + num(po.total_plafon), 0);
+        const realization = valid.reduce((sum, po) => sum + num(po.nilai_realisasi), 0);
+        const remaining = Math.max(plafond - realization, 0);
+        const pct = plafond > 0 ? Math.min(100, (realization / plafond) * 100) : 0;
+        $('bssPoCount').textContent = fmt(valid.length) + ' PO';
+        if(!valid.length){ state.innerHTML = '<div class="bss-empty">Belum ada Master PO yang dapat diringkas.</div>'; return; }
+
+        const top = [...valid].sort((a,b) => num(b.nilai_realisasi) - num(a.nilai_realisasi)).slice(0,5);
+        const maxValue = Math.max(...top.map(po => num(po.nilai_realisasi)), 1);
+        state.innerHTML = `
+            <div class="bss-po-summary">
+                <div class="bss-po-chart-card">
+                    <h3>Posisi anggaran keseluruhan</h3>
+                    <p>Realisasi yang sudah terpetakan terhadap total plafon Master PO.</p>
+                    <div class="bss-po-visual">
+                        <div class="bss-donut" tabindex="0" role="img" aria-label="Serapan anggaran ${pct.toFixed(1)} persen" data-chart-tip-title="Serapan anggaran keseluruhan" data-chart-tip-detail="Plafon: ${money(plafond)}\nRealisasi: ${money(realization)}\nSisa: ${money(remaining)}" style="background:conic-gradient(var(--bss-blue) ${pct * 3.6}deg,#dbeafe ${pct * 3.6}deg)">
+                            <div class="bss-donut-label"><strong>${pct.toFixed(1)}%</strong><span>terserap</span></div>
+                        </div>
+                        <div class="bss-legend">
+                            <div class="bss-legend-row"><span>Plafon PO</span><strong>${money(plafond)}</strong></div>
+                            <div class="bss-legend-row"><span>Realisasi</span><strong>${money(realization)}</strong></div>
+                            <div class="bss-legend-row"><span>Sisa anggaran</span><strong>${money(remaining)}</strong></div>
+                            <div class="bss-legend-row"><span>Item pekerjaan</span><strong>${fmt(valid.reduce((s,po) => s + num(po.jumlah_item || po.item_count),0))}</strong></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bss-po-chart-card">
+                    <h3>Realisasi per PO</h3>
+                    <p>Lima PO dengan nilai realisasi terbesar. Klik baris tabel untuk breakdown item.</p>
+                    <div class="bss-bar-list">
+                        ${top.map(po => {
+                            const value = num(po.nilai_realisasi);
+                            return `<div class="bss-bar-row" data-chart-tip-title="PO ${esc(po.nomor_po)}" data-chart-tip-detail="Kontrak: ${esc(po.nomor_kontrak || '—')}\nRealisasi: ${money(value)}\nPlafon: ${money(po.total_plafon)}"><div class="bss-bar-label" title="${esc(po.nomor_po)}">${esc(po.nomor_po)}</div><div class="bss-bar-track"><div class="bss-bar-fill" style="width:${Math.min(100,(value / maxValue) * 100)}%"></div></div><div class="bss-bar-value">${money(value)}</div></div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="bss-po-table-card" style="margin-top:16px">
+                <h3>Daftar PO & realisasi</h3>
+                <p>Data diambil dari Master PO dan ledger realisasi; klik satu PO untuk melihat item, qty, dan sisa nilai.</p>
+                <div class="bss-po-table-wrap"><table class="bss-po-table"><thead><tr><th>Kontrak</th><th>Nomor PO</th><th>Status PO</th><th>Item</th><th class="num">Plafon</th><th class="num">Realisasi</th><th class="num">Sisa</th><th class="num">Serapan</th></tr></thead><tbody>
+                    ${valid.map(po => {
+                        const cap = num(po.total_plafon); const used = num(po.nilai_realisasi); const balance = Math.max(cap-used,0); const ratio = cap > 0 ? Math.min(100, used/cap*100) : 0;
+                        const status = clean(po.status_po) || '—';
+                        return `<tr data-po-id="${esc(po.id)}" data-chart-tip-title="PO ${esc(po.nomor_po)}" data-chart-tip-detail="Kontrak: ${esc(po.nomor_kontrak || '—')}\nStatus PO: ${esc(status)}\nPlafon: ${money(cap)}\nRealisasi: ${money(used)}\nSisa: ${money(balance)}\nSerapan: ${ratio.toFixed(1)}%"><td>${esc(po.nomor_kontrak || '—')}</td><td><strong>${esc(po.nomor_po)}</strong></td><td><span class="bss-badge ${status.toUpperCase() === 'ACTIVE' ? 'ok' : 'neutral'}">${esc(status)}</span></td><td>${fmt(po.jumlah_item || po.item_count || 0)}</td><td class="num">${money(cap)}</td><td class="num">${money(used)}</td><td class="num">${money(balance)}</td><td class="num"><span class="bss-badge ${ratio >= 90 ? 'warn' : 'ok'}">${ratio.toFixed(1)}%</span></td></tr>`;
+                    }).join('')}
+                </tbody></table></div>
+                <div id="bssPoDetail" class="bss-po-detail" style="display:none"></div>
+            </div>
+        `;
+        state.querySelectorAll('[data-po-id]').forEach(row => row.addEventListener('click', () => openPoDetail(row.dataset.poId)));
+    }
+
+    function renderOperations(){
+        const state = $('bssOperationsState');
+        if(!state) return;
+        const total = piRecords.length;
+        const withWcc = piRecords.filter(row => clean(row['Nomor WCC'])).length;
+        const withWo = piRecords.filter(row => clean(row['Nomor WO'] || row['_transaction_wo'])).length;
+        const withBastp = piRecords.filter(row => clean(row['Jenis BASTP'])).length;
+        const withTx = piRecords.filter(row => num(row['_transaction_count']) > 0).length;
+        const noProgress = piRecords.filter(row => !clean(row['Progress Pekerjaan'])).length;
+        const mappedValue = unmappedRecords.reduce((sum,row) => sum + num(row.total_nilai),0);
+        const unmappedCount = unmappedRecords.reduce((sum,row) => sum + num(row.jumlah_realisasi),0);
+        const contractsWithoutPi = contracts.filter(row => !num(row.__pi_count)).length;
+        const byContract = new Map();
+        piRecords.forEach(row => {
+            const contractNo = clean(row['Nomor Kontrak']) || 'Tanpa nomor kontrak';
+            if(!clean(row['Progress Pekerjaan'])) return;
+            const bucket = byContract.get(contractNo) || [];
+            bucket.push(num(row['Progress Pekerjaan']));
+            byContract.set(contractNo,bucket);
+        });
+        const progressRows = [...byContract.entries()].map(([contract,values]) => ({
+            contract,
+            progress: values.reduce((sum,value) => sum + value,0) / values.length,
+            piCount: values.length
+        })).sort((a,b) => a.progress - b.progress).slice(0,8);
+        const maxProgress = Math.max(...progressRows.map(row => row.progress),100);
+        const mappingRows = unmappedRecords.slice(0,6);
+        state.innerHTML = `
+            <div class="bss-data-note">Kelengkapan dihitung dari data master PI dan status pemetaan Master PO. WCC/WO menunjukkan nomor referensi tersedia; progres rata-rata hanya memasukkan PI yang memiliki nilai progres.</div>
+            <div class="bss-op-kpis">
+                <div class="bss-op-kpi"><div class="bss-op-kpi-label">PI dengan transaksi</div><div class="bss-op-kpi-value">${fmt(withTx)} / ${fmt(total)}</div><div class="bss-op-kpi-note">PI yang memiliki rincian pekerjaan</div></div>
+                <div class="bss-op-kpi"><div class="bss-op-kpi-label">PI dengan WCC</div><div class="bss-op-kpi-value">${fmt(withWcc)} / ${fmt(total)}</div><div class="bss-op-kpi-note">Nomor WCC tercatat pada master PI</div></div>
+                <div class="bss-op-kpi"><div class="bss-op-kpi-label">PI dengan WO</div><div class="bss-op-kpi-value">${fmt(withWo)} / ${fmt(total)}</div><div class="bss-op-kpi-note">Nomor WO tersedia pada master/transaksi</div></div>
+                <div class="bss-op-kpi"><div class="bss-op-kpi-label">Realisasi belum terpetakan</div><div class="bss-op-kpi-value">${mappingAvailable ? money(mappedValue) : '—'}</div><div class="bss-op-kpi-note">${mappingAvailable ? fmt(unmappedCount) + ' baris · perlu dicocokkan ke item PO' : 'Status pemetaan belum dapat dimuat'}</div></div>
+            </div>
+            <div class="bss-op-layout">
+                <div class="bss-op-card"><h3>Rata-rata progres PI per kontrak</h3><p>Kontrak berprogres terendah ditampilkan lebih dahulu. Pilih baris untuk membuka detail kontraknya.</p>
+                    ${progressRows.length ? `<div class="bss-progress-list">${progressRows.map(row => `<button type="button" class="bss-progress-row" data-contract-progress="${esc(row.contract)}" data-chart-tip-title="Kontrak ${esc(row.contract)}" data-chart-tip-detail="Rata-rata progres tercatat: ${row.progress.toFixed(1)}%\nPI dengan progres: ${fmt(row.piCount)}\nPilih untuk membuka detail kontrak"><span class="bss-progress-name">${esc(row.contract)}</span><span class="bss-progress-track"><span class="bss-progress-fill" style="display:block;width:${Math.min(100,row.progress/maxProgress*100)}%"></span></span><span class="bss-progress-value">${row.progress.toFixed(0)}%</span></button>`).join('')}</div>` : '<div class="bss-finance-empty">Belum ada progres PI yang dapat dibandingkan.</div>'}
+                </div>
+                <div class="bss-op-card"><h3>Kualitas dan kelengkapan data</h3><p>Daftar sinyal yang membantu tim menentukan pemeriksaan berikutnya.</p>
+                    <div class="bss-quality-list">
+                        <div class="bss-quality-row"><span>PI tanpa rincian transaksi</span><strong>${fmt(total-withTx)} PI</strong></div>
+                        <div class="bss-quality-row"><span>PI dengan jenis BASTP tercatat</span><strong>${fmt(withBastp)} / ${fmt(total)} PI</strong></div>
+                        <div class="bss-quality-row"><span>PI dengan TKDN tersimpan</span><strong>${documentSnapshot.available && documentSnapshot.tkdn_saved_pi !== null ? fmt(documentSnapshot.tkdn_saved_pi) + ' PI' : 'Tidak tersedia'}</strong></div>
+                        <div class="bss-quality-row"><span>PI dengan Opname tersimpan</span><strong>${documentSnapshot.available && documentSnapshot.opname_saved_pi !== null ? fmt(documentSnapshot.opname_saved_pi) + ' PI' : 'Tidak tersedia'}</strong></div>
+                        <div class="bss-quality-row"><span>PI tanpa angka progres</span><strong>${fmt(noProgress)} PI</strong></div>
+                        <div class="bss-quality-row"><span>Realisasi PO belum terpetakan</span><strong>${mappingAvailable ? fmt(unmappedCount) + ' baris' : 'Tidak tersedia'}</strong></div>
+                    </div>
+                    ${mappingRows.length ? `<div class="bss-mapping-list">${mappingRows.map(row => `<div class="bss-mapping-item"><div><strong>${esc(row.nomor_kontrak || '—')} · PO ${esc(row.nomor_po || '—')}</strong><span>Contoh PI ${esc(row.sample_pi || '—')} · ${fmt(row.jumlah_pi)} PI terdampak</span></div><strong>${money(row.total_nilai)}</strong></div>`).join('')}</div>` : `<div class="bss-finance-empty" style="margin-top:10px">${mappingAvailable ? 'Tidak ada realisasi PO berstatus belum terpetakan.' : 'Daftar pemetaan belum dapat dimuat.'}</div>`}
+                </div>
+            </div>
+        `;
+        state.querySelectorAll('[data-contract-progress]').forEach(button => button.addEventListener('click',() => {
+            selectContract(button.dataset.contractProgress);
+            $('bssDetailState')?.scrollIntoView({behavior:'smooth',block:'start'});
+        }));
+        const findings = [];
+        if(contractsWithoutPi) findings.push(fmt(contractsWithoutPi) + ' kontrak tanpa PI');
+        if(total-withTx) findings.push(fmt(total-withTx) + ' PI tanpa rincian transaksi');
+        if(mappingAvailable && unmappedCount) findings.push(fmt(unmappedCount) + ' realisasi belum terpetakan');
+        if(financeSnapshot.paymentAvailable && financeSnapshot.groups?.overdue?.length) findings.push(fmt(financeSnapshot.groups.overdue.length) + ' invoice lewat jatuh tempo');
+        const followup = $('bssFollowup');
+        const followupText = followup?.querySelector('span:last-child');
+        if(followup && followupText){
+            followup.classList.toggle('ok',findings.length===0);
+            followupText.innerHTML = findings.length
+                ? '<strong>Perlu ditinjau:</strong> ' + findings.map(esc).join(' · ') + '. Pilih bagian dashboard untuk membuka rincian.'
+                : '<strong>Tidak ada temuan utama dari pemeriksaan yang tersedia.</strong> Kelengkapan akan mengikuti data yang berhasil dimuat.';
+            $('bssPulseValue').textContent = findings.length ? 'Perlu ditinjau' : 'Tidak ada temuan utama';
+            $('bssPulseNote').textContent = findings.length ? findings.join(' · ') : 'Kontrak, PI, transaksi, pemetaan PO, dan umur invoice sudah diperiksa.';
+        }
+    }
+
+    async function loadUnmapped(){
+        try{
+            const result = await getJson('/master-po/api/unmapped');
+            unmappedRecords = Array.isArray(result.data) ? result.data : [];
+            mappingAvailable = true;
+        }catch(error){
+            unmappedRecords = [];
+            mappingAvailable = false;
+        }
+        renderOperations();
+    }
+
+    async function loadDocumentReadiness(){
+        try{
+            const result = await getJson('/api/dashboard/document-readiness');
+            const data = result.data || {};
+            documentSnapshot = {
+                available:true,
+                tkdn_saved_pi:data.tkdn_saved_pi,
+                opname_saved_pi:data.opname_saved_pi
+            };
+        }catch(error){
+            documentSnapshot = {available:false,tkdn_saved_pi:null,opname_saved_pi:null};
+        }
+        renderOperations();
+    }
+
+    function renderFinanceDetails(){
+        const host = $('bssFinanceDetails');
+        if(!host) return;
+        const groups = financeSnapshot.groups || {};
+        const selected = groups[financeSnapshot.filter] || [];
+        const labels = {overdue:'Lewat jatuh tempo',soon:'Jatuh tempo ≤ 30 hari',open:'Belum jatuh tempo > 30 hari',paid:'Lunas',no_due:'Tanggal jatuh tempo kosong',untracked:'Belum ada monitoring'};
+        host.innerHTML = selected.length ? `
+            <div class="bss-finance-table-wrap"><table class="bss-finance-table"><thead><tr><th>Nomor invoice</th><th>Kontrak</th><th>Jatuh tempo</th><th class="num">Tagihan</th><th class="num">Pembayaran + potongan</th><th class="num">Sisa piutang</th><th>Status</th></tr></thead><tbody>
+                ${selected.map(row => `<tr><td><strong>${esc(row.nomor_invoice || '—')}</strong><br><span class="bss-muted">PI ${esc(row.pi_no || '—')}</span></td><td>${esc(row.nomor_kontrak || '—')}</td><td>${esc(row.due || '—')}</td><td class="num">${money(row.charge)}</td><td class="num">${row.tracked ? money(row.received + row.deductions) : '—'}</td><td class="num">${row.tracked ? money(row.balance) : '—'}</td><td>${esc(row.statusLabel)}</td></tr>`).join('')}
+            </tbody></table></div><div class="bss-contract-result">${labels[financeSnapshot.filter]} · ${fmt(selected.length)} invoice.</div>
+        ` : `<div class="bss-finance-empty">Tidak ada invoice pada kelompok “${esc(labels[financeSnapshot.filter] || 'pilihan ini')}”.</div>`;
+    }
+
+    function renderFinance(){
+        const state = $('bssFinanceState');
+        if(!state) return;
+        if(!financeSnapshot.available){
+            $('bssInvoiceCount').textContent = 'Tidak tersedia';
+            state.innerHTML = '<div class="bss-finance-empty">Ringkasan keuangan belum dapat dimuat dari API invoice dan monitoring pembayaran. Bagian dashboard operasional tetap tersedia.</div>';
+            return;
+        }
+        const rows = financeSnapshot.invoices;
+        const sum = key => rows.reduce((total,row) => total + num(row[key]),0);
+        const groups = financeSnapshot.groups;
+        const agingDefs = [
+            ['overdue','Lewat jatuh tempo','overdue'],
+            ['soon','≤ 30 hari','due'],
+            ['open','> 30 hari','open'],
+            ['paid','Lunas','paid'],
+            ['no_due','Tanpa tanggal','open'],
+            ['untracked','Belum dimonitor','due']
+        ];
+        const groupAmount = (key,list) => list.reduce((total,row) => total + (key === 'untracked' ? row.charge : row.balance),0);
+        const maxBalance = Math.max(...agingDefs.map(([key]) => groupAmount(key,groups[key] || [])),1);
+        const untracked = groups.untracked || [];
+        $('bssInvoiceCount').textContent = fmt(rows.length) + ' invoice';
+        state.innerHTML = `
+            ${financeSnapshot.paymentAvailable ? '' : '<div class="bss-data-note">Daftar invoice tersedia, tetapi API monitoring pembayaran belum merespons. Nilai piutang dan status pembayaran tidak ditampilkan.</div>'}
+            <div class="bss-finance-kpis">
+                <div class="bss-finance-kpi"><div class="bss-finance-kpi-label">Total tagihan</div><div class="bss-finance-kpi-value">${money(sum('charge'))}</div><div class="bss-finance-kpi-note">DPP + PPN invoice aktif</div></div>
+                <div class="bss-finance-kpi"><div class="bss-finance-kpi-label">Pembayaran dan potongan</div><div class="bss-finance-kpi-value">${financeSnapshot.paymentAvailable ? money(sum('received')+sum('deductions')) : '—'}</div><div class="bss-finance-kpi-note">Penerimaan bank + PPh/WAPU tercatat</div></div>
+                <div class="bss-finance-kpi"><div class="bss-finance-kpi-label">Piutang tercatat</div><div class="bss-finance-kpi-value">${financeSnapshot.paymentAvailable ? money(sum('balance')) : '—'}</div><div class="bss-finance-kpi-note">Hanya invoice dengan monitoring pembayaran</div></div>
+                <div class="bss-finance-kpi"><div class="bss-finance-kpi-label">Lewat jatuh tempo</div><div class="bss-finance-kpi-value">${financeSnapshot.paymentAvailable ? fmt(groups.overdue.length) + ' invoice' : '—'}</div><div class="bss-finance-kpi-note">${financeSnapshot.paymentAvailable ? money(groups.overdue.reduce((total,row) => total + row.balance,0)) + ' belum tertagih' : 'Menunggu data monitoring'}</div></div>
+                <div class="bss-finance-kpi"><div class="bss-finance-kpi-label">Belum ada monitoring</div><div class="bss-finance-kpi-value">${financeSnapshot.paymentAvailable ? fmt(untracked.length) + ' invoice' : '—'}</div><div class="bss-finance-kpi-note">${financeSnapshot.paymentAvailable ? money(untracked.reduce((total,row) => total + row.charge,0)) + ' tagihan perlu diverifikasi' : 'Menunggu data monitoring'}</div></div>
+            </div>
+            ${financeSnapshot.paymentAvailable ? `
+                <div class="bss-finance-card"><h3>Umur dan status tagihan</h3><p>Umur dihitung dari invoice yang sudah memiliki monitoring pembayaran. Invoice tanpa catatan pembayaran dipisahkan untuk menghindari anggapan bahwa tagihan tersebut pasti belum dibayar.</p>
+                    <div class="bss-aging-list">${agingDefs.map(([key,label,kind]) => { const list=groups[key] || []; const amount=groupAmount(key,list); const width=Math.min(100,amount/maxBalance*100); return `<button type="button" class="bss-aging-item ${financeSnapshot.filter===key?'active':''}" data-aging-filter="${key}" data-chart-tip-title="${label}" data-chart-tip-detail="Jumlah invoice: ${fmt(list.length)}\n${key==='untracked'?'Nilai tagihan untuk verifikasi':'Sisa tagihan tercatat'}: ${money(amount)}\nPilih untuk melihat daftar invoice"><div class="bss-aging-head"><span>${label}</span><span>${fmt(list.length)}</span></div><div class="bss-aging-track"><div class="bss-aging-fill ${kind}" style="width:${width}%"></div></div><div class="bss-aging-amount">${money(amount)}</div></button>`; }).join('')}</div>
+                    <div id="bssFinanceDetails"></div>
+                </div>
+            ` : ''}
+        `;
+        state.querySelectorAll('[data-aging-filter]').forEach(button => button.addEventListener('click',() => {
+            financeSnapshot.filter = button.dataset.agingFilter;
+            renderFinance();
+        }));
+        renderFinanceDetails();
+    }
+
+    async function loadFinance(){
+        const [invoiceResult,paymentResult] = await Promise.all([
+            getJson('/api/modul-3/invoices').catch(() => null),
+            getJson('/api/modul-3/payment-monitoring').catch(() => null)
+        ]);
+        if(!invoiceResult){
+            financeSnapshot = {invoices:[], available:false, filter:'overdue'};
+            renderFinance();
+            return;
+        }
+        const invoiceRows = Array.isArray(invoiceResult.data) ? invoiceResult.data : [];
+        const paymentRows = Array.isArray(paymentResult?.data) ? paymentResult.data : [];
+        const paymentByInvoice = new Map(paymentRows.map(row => [String(row.invoice_id),row]));
+        const now = new Date(); now.setHours(0,0,0,0);
+        const soon = new Date(now); soon.setDate(soon.getDate()+30);
+        const groups = {overdue:[],soon:[],open:[],paid:[],no_due:[],untracked:[]};
+        const invoices = invoiceRows.filter(row => clean(row.status_invoice).toUpperCase() !== 'DIBATALKAN').map(invoice => {
+            const payment = paymentByInvoice.get(String(invoice.id));
+            const charge = num(invoice.nilai_dpp) + num(invoice.ppn_nominal) || num(invoice.total_netto);
+            const tracked = Boolean(payment);
+            const received = payment ? num(payment.nominal_dibayar) : 0;
+            const deductions = payment ? num(payment.potongan_pph) + num(payment.potongan_ppn_wapu) : 0;
+            const balance = payment ? num(payment.saldo_piutang) : 0;
+            const due = clean(payment?.tanggal_jatuh_tempo || payment?.invoice_jatuh_tempo || invoice.jatuh_tempo);
+            const dueDate = due ? new Date(due.slice(0,10) + 'T00:00:00') : null;
+            const row = {...invoice,charge,tracked,received,deductions,balance,due,statusLabel:''};
+            const group = !tracked ? 'untracked' : charge <= .01 ? 'no_due' : balance <= .01 ? 'paid' : !dueDate || Number.isNaN(dueDate.getTime()) ? 'no_due' : dueDate < now ? 'overdue' : dueDate <= soon ? 'soon' : 'open';
+            row.statusLabel = ({paid:'Lunas',overdue:'Lewat jatuh tempo',soon:'Jatuh tempo ≤ 30 hari',open:'Belum jatuh tempo > 30 hari',no_due:charge<=.01?'Tagihan belum tersedia':'Tanggal jatuh tempo kosong',untracked:'Belum ada monitoring pembayaran'})[group];
+            groups[group].push(row);
+            return row;
+        });
+        financeSnapshot = {invoices,groups,available:true,paymentAvailable:Boolean(paymentResult),filter:'overdue'};
+        renderFinance();
+        renderOperations();
+    }
+
+    async function openPoDetail(poId){
+        const detail = $('bssPoDetail');
+        if(!detail) return;
+        detail.style.display = 'block'; detail.innerHTML = '<div class="bss-muted">Memuat detail PO…</div>';
+        try{
+            const result = await getJson('/master-po/api/' + encodeURIComponent(poId));
+            const data = result.data || {}; const header = data.header || {}; const items = Array.isArray(data.items) ? data.items : [];
+            detail.innerHTML = `<h4>PO ${esc(header.nomor_po || '—')} · ${esc(header.nomor_kontrak || '—')}</h4><div class="bss-legend" style="grid-template-columns:repeat(4,1fr);margin-bottom:10px"><div class="bss-legend-row"><span>Plafon</span><strong>${money(header.total_plafon)}</strong></div><div class="bss-legend-row"><span>Realisasi</span><strong>${money(header.nilai_realisasi)}</strong></div><div class="bss-legend-row"><span>Sisa</span><strong>${money(Math.max(num(header.total_plafon)-num(header.nilai_realisasi),0))}</strong></div><div class="bss-legend-row"><span>Qty realisasi</span><strong>${fmt(header.qty_realisasi || 0)}</strong></div></div><div class="bss-po-items">${items.length ? items.map(item => {
+                const cap = num(item.total_plafon); const used = num(item.nilai_used); const ratio = cap > 0 ? Math.min(100, used/cap*100) : 0;
+                return `<div class="bss-po-item"><div><strong>${esc(item.deskripsi_pekerjaan || 'Item pekerjaan')}</strong><br><span>${esc(item.kategori || 'Tanpa kategori')} · ${esc(item.uom || '')}</span></div><div><span>Qty PO</span><br>${esc(item.qty_po || 0)}</div><div><span>Realisasi</span><br>${money(used)}</div><div><span>Serapan</span><br><strong>${ratio.toFixed(1)}%</strong></div></div>`;
+            }).join('') : '<div class="bss-muted">Belum ada item pekerjaan pada PO ini.</div>'}</div>`;
+        }catch(error){ detail.innerHTML = '<div class="bss-muted">Detail PO tidak dapat dimuat: ' + esc(error.message) + '</div>'; }
+    }
+
+    function compactMoney(value){
+        const amount = num(value);
+        if(amount >= 1000000000) return 'Rp ' + (amount / 1000000000).toFixed(1) + ' M';
+        if(amount >= 1000000) return 'Rp ' + (amount / 1000000).toFixed(1) + ' jt';
+        if(amount >= 1000) return 'Rp ' + (amount / 1000).toFixed(0) + ' rb';
+        return money(amount);
+    }
+
+    function categoryBars(rows, field, isVolume){
+        const values = (rows || []).map(row => ({
+            label: clean(row.kategori) || 'Tanpa Kategori',
+            value: num(row[field])
+        })).sort((a,b) => b.value - a.value).slice(0,8);
+        if(!values.length) return '<div class="bss-chart-empty">Belum ada data kategori.</div>';
+        const max = Math.max(...values.map(row => row.value), 1);
+        return '<div class="bss-category-bars">' + values.map(row => `
+            <button type="button" class="bss-category-row" data-category="${esc(row.label)}" data-chart-tip-title="Kategori ${esc(row.label)}" data-chart-tip-detail="${isVolume ? 'Total volume' : 'Total biaya'}: ${isVolume ? fmt(row.value) : money(row.value)}\nPilih untuk melihat rincian item pekerjaan" aria-label="Detail kategori ${esc(row.label)}">
+                <div class="bss-category-label" title="${esc(row.label)}">${esc(row.label)}</div>
+                <div class="bss-category-track"><div class="bss-category-fill ${isVolume ? 'volume' : ''}" style="width:${Math.min(100,row.value/max*100)}%"></div></div>
+                <div class="bss-category-value">${isVolume ? fmt(row.value) : compactMoney(row.value)}</div>
+            </button>
+        `).join('') + '</div>';
+    }
+
+    function trendChart(rows){
+        const values = (rows || []).filter(row => row.periode).slice(-12);
+        if(!values.length) return '<div class="bss-chart-empty">Belum ada data tren PI.</div>';
+        const width = 760, height = 220, left = 42, right = 18, top = 16, bottom = 34;
+        const maxCost = Math.max(...values.map(row => num(row.total_biaya)), 1);
+        const maxPI = Math.max(...values.map(row => num(row.pi_count)), 1);
+        const usableW = width - left - right, usableH = height - top - bottom;
+        const points = values.map((row,index) => {
+            const x = left + (values.length === 1 ? usableW / 2 : index * usableW / (values.length - 1));
+            const y = top + usableH - (num(row.total_biaya) / maxCost * usableH);
+            return {x,y,row};
+        });
+        const path = points.map(point => point.x + ',' + point.y).join(' ');
+        const grid = [0,.25,.5,.75,1].map(ratio => {
+            const y = top + usableH - ratio * usableH;
+            return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="#e8edf3" stroke-width="1"/><text x="${left-7}" y="${y+3}" text-anchor="end" class="bss-axis-label">${compactMoney(maxCost*ratio)}</text>`;
+        }).join('');
+        const barWidth = Math.min(34, usableW / Math.max(values.length,1) * .45);
+        const bars = points.map(point => {
+            const barHeight = num(point.row.pi_count) / maxPI * usableH;
+            return `<rect data-trend-period="${esc(point.row.periode)}" tabindex="0" role="button" aria-label="Detail jumlah PI periode ${esc(point.row.periode)}" data-chart-tip-title="${esc(point.row.periode)}" data-chart-tip-detail="Jumlah PI: ${fmt(point.row.pi_count)}\nItem pekerjaan: ${fmt(point.row.item_count)}\nPilih untuk membuka ringkasan periode" x="${point.x - barWidth/2}" y="${top + usableH - barHeight}" width="${barWidth}" height="${barHeight}" rx="3" fill="#dbeafe"><title>${esc(point.row.periode)} · ${fmt(point.row.pi_count)} PI</title></rect><text x="${point.x}" y="${top + usableH - barHeight - 5}" text-anchor="middle" class="bss-axis-label">${fmt(point.row.pi_count)}</text>`;
+        }).join('');
+        const dots = points.map(point => `<circle data-trend-period="${esc(point.row.periode)}" tabindex="0" role="button" aria-label="Detail biaya periode ${esc(point.row.periode)}" data-chart-tip-title="${esc(point.row.periode)}" data-chart-tip-detail="Biaya transaksi: ${money(point.row.total_biaya)}\nJumlah PI: ${fmt(point.row.pi_count)}\nItem pekerjaan: ${fmt(point.row.item_count)}" cx="${point.x}" cy="${point.y}" r="5" fill="#175cd3" stroke="#fff" stroke-width="2"><title>${esc(point.row.periode)} · ${money(point.row.total_biaya)} · ${fmt(point.row.pi_count)} PI</title></circle>`).join('');
+        const labels = points.map(point => `<text x="${point.x}" y="${height-10}" text-anchor="middle" class="bss-axis-label">${esc(point.row.periode)}</text>`).join('');
+        return `<svg class="bss-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Tren jumlah PI dan biaya per periode">${grid}${bars}<polyline points="${path}" fill="none" stroke="#175cd3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}</svg><div class="bss-chart-legend"><span><i style="background:#175cd3"></i>Total biaya transaksi</span><span><i style="background:#dbeafe"></i>Jumlah PI per periode</span></div>`;
+    }
+
+    function contractChart(rows){
+        const values = (rows || []).map(row => {
+            const cap = num(row.plafon_kontrak) || num(row.total_plafon_po);
+            const real = num(row.total_realisasi);
+            return {...row, cap, real, pct: cap > 0 ? real/cap*100 : 0};
+        }).filter(row => row.cap > 0 || row.real > 0).sort((a,b) => b.cap - a.cap).slice(0,8);
+        if(!values.length) return '<div class="bss-chart-empty">Belum ada plafon kontrak/realisasi yang bisa dibandingkan.</div>';
+        const max = Math.max(...values.map(row => row.cap), 1);
+        return `<div class="bss-contract-chart">${values.map(row => `<button type="button" class="bss-contract-row" data-contract-chart="${esc(row.nomor_kontrak || '')}" data-chart-tip-title="Kontrak ${esc(row.nomor_kontrak || '—')}" data-chart-tip-detail="Plafon: ${money(row.cap)}\nRealisasi: ${money(row.real)}\nSisa: ${money(Math.max(row.cap-row.real,0))}\nSerapan: ${row.pct.toFixed(1)}%" aria-label="Detail kontrak ${esc(row.nomor_kontrak || '')}"><div class="bss-contract-label" title="${esc(row.nomor_kontrak)}">${esc(row.nomor_kontrak || '—')}</div><div class="bss-contract-bars"><div class="bss-contract-track" title="Plafon kontrak"><div class="bss-contract-fill cap" style="width:${Math.min(100,row.cap/max*100)}%"></div></div><div class="bss-contract-track" title="Realisasi"><div class="bss-contract-fill real" style="width:${Math.min(100,row.real/max*100)}%"></div></div></div><div class="bss-contract-pct">${row.pct.toFixed(1)}%</div></button>`).join('')}</div><div class="bss-contract-legend"><span><i style="background:#284690"></i>Plafon kontrak</span><span><i style="background:#f5b700"></i>Realisasi</span><span>Persen = realisasi ÷ plafon</span></div>`;
+    }
+
+    function resetAnalyticsFocus(){
+        $('bssAnalyticsFocus').innerHTML = '<div class="bss-focus-empty">Pilih kategori, periode, atau kontrak pada grafik untuk membuka rincian realisasi.</div>';
+    }
+
+    function focusShell(title, subtitle, body){
+        $('bssAnalyticsFocus').innerHTML = `<div class="bss-focus-head"><div><h3>${esc(title)}</h3><p>${esc(subtitle)}</p></div><button type="button" class="bss-focus-reset" id="bssFocusReset">Hapus pilihan</button></div>${body}`;
+        $('bssFocusReset')?.addEventListener('click', resetAnalyticsFocus);
+    }
+
+    function showCategoryFocus(category){
+        let rows = analyticsSnapshot.items.filter(row => clean(row.kategori).toLowerCase() === clean(category).toLowerCase());
+        const summary = analyticsSnapshot.categories.find(row => clean(row.kategori).toLowerCase() === clean(category).toLowerCase()) || {};
+        const fallback = !rows.length && Object.keys(summary).length > 0;
+        if(fallback){
+            rows = [{
+                uraian: 'Ringkasan kategori — detail item belum tersedia',
+                unit: '-',
+                total_volume: summary.total_volume,
+                total_biaya: summary.total_biaya,
+                item_count: summary.item_count,
+                pi_count: summary.pi_count
+            }];
+        }
+        const totalCost = rows.reduce((sum,row) => sum + num(row.total_biaya), 0);
+        const totalVolume = rows.reduce((sum,row) => sum + num(row.total_volume), 0);
+        const totalPI = rows.reduce((sum,row) => sum + num(row.pi_count), 0);
+        const notice = fallback ? '<div class="bss-focus-notice">Ringkasan kategori tersedia, tetapi rincian item belum dikirim oleh sumber data transaksi.</div>' : '';
+        const body = `${notice}<div class="bss-focus-summary"><div class="bss-focus-stat"><span>Total biaya</span><strong>${money(totalCost)}</strong></div><div class="bss-focus-stat"><span>Total volume</span><strong>${fmt(totalVolume)}</strong></div><div class="bss-focus-stat"><span>Item pekerjaan</span><strong>${fmt(rows.reduce((sum,row) => sum + num(row.item_count), 0))}</strong></div><div class="bss-focus-stat"><span>Referensi PI</span><strong>${fmt(totalPI)}</strong></div></div><div class="bss-focus-table-wrap"><table class="bss-focus-table"><thead><tr><th>Uraian pekerjaan</th><th>Satuan</th><th class="num">Volume</th><th class="num">Total biaya</th><th class="num">PI</th></tr></thead><tbody>${rows.slice(0,30).map(row => `<tr><td>${esc(row.uraian)}</td><td>${esc(row.unit)}</td><td class="num">${fmt(row.total_volume)}</td><td class="num">${money(row.total_biaya)}</td><td class="num">${fmt(row.pi_count)}</td></tr>`).join('') || '<tr><td colspan="5">Belum ada rincian untuk kategori ini.</td></tr>'}</tbody></table></div>`;
+        focusShell('Detail kategori · ' + category, 'Rincian item, volume, biaya, dan referensi PI yang membentuk grafik kategori.', body);
+    }
+
+    function showTrendFocus(period){
+        const row = analyticsSnapshot.trend.find(item => clean(item.periode) === clean(period));
+        if(!row) return;
+        const body = `<div class="bss-focus-summary"><div class="bss-focus-stat"><span>Jumlah PI</span><strong>${fmt(row.pi_count)}</strong></div><div class="bss-focus-stat"><span>Item pekerjaan</span><strong>${fmt(row.item_count)}</strong></div><div class="bss-focus-stat"><span>Total biaya</span><strong>${money(row.total_biaya)}</strong></div><div class="bss-focus-stat"><span>Total volume</span><strong>${fmt(row.total_volume)}</strong></div></div>`;
+        focusShell('Detail periode · ' + period, 'Ringkasan aktivitas PI pada periode yang dipilih.', body);
+    }
+
+    function showContractFocus(contractNo){
+        const contract = analyticsSnapshot.contracts.find(row => clean(row.nomor_kontrak) === clean(contractNo)) || {};
+        const pos = poRecords.filter(row => clean(row.nomor_kontrak) === clean(contractNo));
+        const cap = num(contract.plafon_kontrak) || num(contract.total_plafon_po);
+        const real = num(contract.total_realisasi);
+        const body = `<div class="bss-focus-summary"><div class="bss-focus-stat"><span>Plafon kontrak</span><strong>${money(cap)}</strong></div><div class="bss-focus-stat"><span>Realisasi</span><strong>${money(real)}</strong></div><div class="bss-focus-stat"><span>Sisa</span><strong>${money(Math.max(cap-real,0))}</strong></div><div class="bss-focus-stat"><span>Serapan</span><strong>${cap > 0 ? (real/cap*100).toFixed(1) : '0.0'}%</strong></div></div><div class="bss-focus-table-wrap"><table class="bss-focus-table"><thead><tr><th>Nomor PO</th><th>Status</th><th class="num">Item</th><th class="num">Plafon</th><th class="num">Realisasi</th><th class="num">Serapan</th></tr></thead><tbody>${pos.map(po => { const pCap=num(po.total_plafon); const pReal=num(po.nilai_realisasi); return `<tr><td><button type="button" class="bss-focus-link" data-focus-po="${esc(po.id)}">${esc(po.nomor_po)}</button></td><td>${esc(po.status_po || 'ACTIVE')}</td><td class="num">${fmt(po.jumlah_item || po.item_count || 0)}</td><td class="num">${money(pCap)}</td><td class="num">${money(pReal)}</td><td class="num">${pCap > 0 ? (pReal/pCap*100).toFixed(1) : '0.0'}%</td></tr>`; }).join('') || '<tr><td colspan="6">Belum ada PO yang terhubung ke kontrak ini.</td></tr>'}</tbody></table></div><div style="margin-top:10px"><button type="button" class="bss-focus-link" id="bssOpenContractDetail">Buka detail kontrak di bawah ↓</button></div>`;
+        focusShell('Detail kontrak · ' + (contractNo || '—'), 'PO, plafon, realisasi, dan sisa anggaran yang membentuk persentase serapan.', body);
+        $('bssOpenContractDetail')?.addEventListener('click', () => { selectContract(contractNo); document.getElementById('bssDetailState')?.scrollIntoView({behavior:'smooth',block:'start'}); });
+        $('bssAnalyticsFocus').querySelectorAll('[data-focus-po]').forEach(button => button.addEventListener('click', () => { openPoDetail(button.dataset.focusPo); document.getElementById('bssPoState')?.scrollIntoView({behavior:'smooth',block:'start'}); }));
+    }
+
+    function bindAnalyticsInteractions(){
+        document.querySelectorAll('[data-category]').forEach(button => button.addEventListener('click', () => showCategoryFocus(button.dataset.category)));
+        document.querySelectorAll('[data-trend-period]').forEach(point => {
+            const activate = () => showTrendFocus(point.dataset.trendPeriod);
+            point.addEventListener('click', activate);
+            point.addEventListener('keydown', event => { if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(); } });
+        });
+        document.querySelectorAll('[data-contract-chart]').forEach(button => button.addEventListener('click', () => showContractFocus(button.dataset.contractChart)));
+    }
+
+    async function loadAnalytics(){
+        const state = $('bssAnalyticsState');
+        try{
+            const [analytics, contractResult] = await Promise.all([
+                getJson('/api/dashboard/analytics'),
+                getJson('/master-po/api/contracts').catch(() => ({data:[]}))
+            ]);
+            const categories = Array.isArray(analytics.categories) ? analytics.categories : [];
+            const trend = Array.isArray(analytics.trend) ? analytics.trend : [];
+            const items = Array.isArray(analytics.items) ? analytics.items : [];
+            const contractRows = Array.isArray(contractResult.data) && contractResult.data.length
+                ? contractResult.data
+                : contracts.map(contract => ({nomor_kontrak:contract['Nomor Kontrak']}));
+            analyticsSnapshot = {categories, trend, items, contracts:contractRows};
+            state.innerHTML = `
+                <div class="bss-chart-card wide"><h3>Tren PI dan biaya transaksi</h3><p>Periode mengikuti tanggal PI; jika kosong, sistem memakai waktu pembaruan transaksi.</p><div class="bss-chart">${trendChart(trend)}</div></div>
+                <div class="bss-chart-card"><h3>Total biaya per kategori</h3><p>Kategori dengan kontribusi nilai transaksi terbesar.</p><div class="bss-chart">${categoryBars(categories,'total_biaya',false)}</div></div>
+                <div class="bss-chart-card"><h3>Total volume per kategori</h3><p>Volume item pekerjaan yang tercatat pada rincian PI.</p><div class="bss-chart">${categoryBars(categories,'total_volume',true)}</div></div>
+                <div class="bss-chart-card wide"><h3>Perbandingan kontrak & persentase penyerapan</h3><p>Bar biru menunjukkan plafon kontrak, bar kuning menunjukkan realisasi. Persentase ditampilkan di sisi kanan.</p><div class="bss-chart">${contractChart(contractRows)}</div></div>
+            `;
+            bindAnalyticsInteractions();
+            resetAnalyticsFocus();
+        }catch(error){
+            state.innerHTML = '<div class="bss-chart-empty">Grafik analitik belum dapat dimuat: ' + esc(error.message) + '</div>';
+        }
+    }
+
+    /*
+     * Modul 1 already exposes:
+     * GET /api/modul-1/contracts
+     * GET /api/modul-1/pi?nomor_kontrak=...
+     *
+     * We intentionally use those existing APIs instead of
+     * inventing a second data source.
+     */
+    async function loadContracts(){
+        const result = await getJson('/api/modul-1/contracts');
+
+        contracts = Array.isArray(result.data) ? result.data : [];
+
+        /*
+         * Load PI count for each contract.
+         * Current database is small enough for this dashboard approach.
+         * If the dataset becomes large, move aggregation to a dedicated
+         * /api/dashboard/summary endpoint later.
+         */
+        const requests = contracts.map(async contract => {
+            const no = clean(contract['Nomor Kontrak']);
+
+            if(!no){
+                return {no:'', count:0, pi:[]};
+            }
+
+            try{
+                const piResult = await getJson(
+                    '/api/modul-1/pi?nomor_kontrak=' + encodeURIComponent(no)
+                );
+
+                const pi = Array.isArray(piResult.data)
+                    ? piResult.data
+                    : [];
+
+                piCache[no] = pi;
+
+                return {
+                    no:no,
+                    count:pi.length,
+                    pi:pi
+                };
+
+            }catch(error){
+                piCache[no] = [];
+
+                return {
+                    no:no,
+                    count:0,
+                    pi:[],
+                    error:error.message
+                };
+            }
+        });
+
+        const piResults = await Promise.all(requests);
+
+        const countMap = {};
+        piResults.forEach(item => {
+            countMap[item.no] = item.count;
+        });
+
+        contracts = contracts.map(contract => ({
+            ...contract,
+            __pi_count: countMap[clean(contract['Nomor Kontrak'])] || 0
+        }));
+
+        const totalPI = piResults.reduce(
+            (sum,item) => sum + item.count,
+            0
+        );
+
+        const withPI = piResults.filter(
+            item => item.count > 0
+        ).length;
+
+        const withoutPI = Math.max(
+            contracts.length - withPI,
+            0
+        );
+
+        setKpi('bssTotalContracts', contracts.length);
+        setKpi('bssTotalPI', totalPI);
+        setKpi('bssContractsWithPI', withPI);
+        setKpi('bssContractsWithoutPI', withoutPI);
+
+        const allPI = piResults.flatMap(item => item.pi || []);
+        piRecords = allPI;
+        const poSet = new Set(allPI.map(item => clean(item['Nomor Purchase Order'] || item['_transaction_po'])).filter(Boolean));
+        const withWcc = allPI.filter(item => clean(item['Nomor WCC'])).length;
+        const withWo = allPI.filter(item => clean(item['Nomor WO'] || item['_transaction_wo'])).length;
+        const withoutTx = allPI.filter(item => !num(item['_transaction_count'])).length;
+        const progressValues = allPI.map(item => num(item['Progress Pekerjaan'])).filter(value => value > 0);
+        const avgProgress = progressValues.length ? progressValues.reduce((sum,value) => sum + value, 0) / progressValues.length : 0;
+        const txTotal = allPI.reduce((sum,item) => sum + num(item['_transaction_total']), 0);
+        setKpi('bssTotalPO', poSet.size);
+        const avgEl = $('bssAvgProgress');
+        if(avgEl){avgEl.textContent = Math.round(avgProgress) + '%'; avgEl.classList.remove('bss-loading');}
+        $('bssWithWcc').textContent = fmt(withWcc) + ' / ' + fmt(allPI.length);
+        $('bssWithWo').textContent = fmt(withWo) + ' / ' + fmt(allPI.length);
+        $('bssWithoutTx').textContent = fmt(withoutTx);
+        $('bssTxTotal').textContent = money(txTotal);
+        const followup = $('bssFollowup');
+        const followupText = followup?.querySelector('span:last-child');
+        const findings = [];
+        if(withoutPI) findings.push(fmt(withoutPI) + ' kontrak belum memiliki PI');
+        if(withoutTx) findings.push(fmt(withoutTx) + ' PI belum memiliki rincian transaksi');
+        if(followupText){
+            followup.classList.toggle('ok', findings.length === 0);
+            followupText.innerHTML = findings.length
+                ? '<strong>Perlu ditinjau:</strong> ' + findings.map(esc).join(' · ') + '. Gunakan pencarian kontrak atau detail PI untuk menindaklanjuti.'
+                : '<strong>Tidak ada kekurangan pada pemeriksaan ringkas.</strong> Seluruh kontrak sudah memiliki PI dan seluruh PI memiliki rincian transaksi.';
+        }
+        $('bssPulseValue').textContent = withoutPI || withoutTx
+            ? 'Perlu ditinjau'
+            : 'Tidak ada temuan utama';
+        $('bssPulseNote').textContent = fmt(withoutPI) + ' kontrak tanpa PI · ' + fmt(withoutTx) + ' PI tanpa rincian transaksi';
+        renderOperations();
+
+        renderContracts();
+
+        /*
+         * Keep selected contract visible after refresh.
+         */
+        if(selectedContract){
+            const exists = contracts.some(
+                c => clean(c['Nomor Kontrak']) === selectedContract
+            );
+
+            if(exists){
+                renderSelectedContract(selectedContract);
+            }
+        }
+    }
+
+    function renderContracts(){
+        const container = $('bssContractState');
+        const query = clean($('bssContractSearch')?.value).toLowerCase();
+
+        const rows = contracts.filter(contract => {
+            if(!query) return true;
+
+            return Object.values(contract || {})
+                .some(value =>
+                    String(value ?? '')
+                        .toLowerCase()
+                        .includes(query)
+                );
+        });
+
+        if(!rows.length){
+            container.innerHTML = `
+                <div class="bss-empty">
+                    Tidak ada kontrak yang sesuai dengan pencarian.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="bss-contract-result">Menampilkan ${fmt(rows.length)} dari ${fmt(contracts.length)} kontrak${query ? ' yang cocok dengan pencarian' : ''}.</div>
+            <div class="bss-table-wrap">
+                <table class="bss-table">
+                    <thead>
+                        <tr>
+                            <th>Nomor Kontrak</th>
+                            <th>Judul Kontrak</th>
+                            <th>Nomor Tender</th>
+                            <th>Tanggal Kontrak</th>
+                            <th>Jangka Waktu</th>
+                            <th>PO</th>
+                            <th>Jumlah PI</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(contract => {
+                            const no = clean(contract['Nomor Kontrak']);
+                            const count = Number(contract.__pi_count || 0);
+                            const active = no === selectedContract ? 'active' : '';
+
+                            return `
+                                <tr
+                                    class="${active}"
+                                    data-contract="${esc(no)}"
+                                    tabindex="0"
+                                    role="button"
+                                    aria-label="Lihat detail kontrak ${esc(no)}"
+                                >
+                                    <td>
+                                        <span class="bss-contract-no">
+                                            ${esc(no || '—')}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div class="bss-contract-title"
+                                             title="${esc(contract['Judul Kontrak'] || '')}">
+                                            ${esc(
+                                                contract['Judul Kontrak']
+                                                || contract['Lingkup Pekerjaan']
+                                                || '—'
+                                            )}
+                                        </div>
+                                    </td>
+
+                                    <td>${esc(contract['Nomor Tender'] || '—')}</td>
+
+                                    <td>${esc(contract['Tanggal Kontrak'] || '—')}</td>
+
+                                    <td>${esc(contract['Jangka Waktu Kontrak'] || '—')}</td>
+
+                                    <td>${esc(contract['Nomor Purchase Order'] || '—')}</td>
+
+                                    <td>
+                                        <span class="bss-count">
+                                            ${fmt(count)}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        ${
+                                            count > 0
+                                            ? '<span class="bss-badge ok">ADA PI</span>'
+                                            : '<span class="bss-badge warn">BELUM ADA PI</span>'
+                                        }
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', () => {
+                const no = row.dataset.contract || '';
+                selectContract(no);
+            });
+            row.addEventListener('keydown', event => {
+                if(event.key === 'Enter' || event.key === ' '){
+                    event.preventDefault();
+                    selectContract(row.dataset.contract || '');
+                }
+            });
+        });
+    }
+
+    async function selectContract(no){
+        selectedContract = clean(no);
+        renderContracts();
+        await renderSelectedContract(selectedContract);
+    }
+
+    async function renderSelectedContract(no){
+        const container = $('bssDetailState');
+        const countBadge = $('bssSelectedPI');
+
+        if(!no){
+            countBadge.textContent = '0 PI';
+            container.innerHTML = `
+                <div class="bss-empty">
+                    Pilih salah satu kontrak pada Contract Monitor.
+                </div>
+            `;
+            return;
+        }
+
+        const contract = contracts.find(
+            item => clean(item['Nomor Kontrak']) === no
+        );
+
+        if(!contract){
+            container.innerHTML = `
+                <div class="bss-empty">
+                    Data kontrak tidak ditemukan.
+                </div>
+            `;
+            return;
+        }
+
+        let pi = piCache[no];
+
+        if(!Array.isArray(pi)){
+            container.innerHTML = `
+                <div class="bss-empty">
+                    Memuat daftar PI...
+                </div>
+            `;
+
+            try{
+                const result = await getJson(
+                    '/api/modul-1/pi?nomor_kontrak='
+                    + encodeURIComponent(no)
+                );
+
+                pi = Array.isArray(result.data)
+                    ? result.data
+                    : [];
+
+                piCache[no] = pi;
+            }catch(error){
+                container.innerHTML = `
+                    <div class="bss-empty">
+                        Gagal memuat PI: ${esc(error.message)}
+                    </div>
+                `;
+                return;
+            }
+        }
+
+        countBadge.textContent = fmt(pi.length) + ' PI';
+
+        container.innerHTML = `
+            <div class="bss-detail">
+
+                <div class="bss-detail-card">
+                    <div class="bss-detail-head">
+                        <div class="bss-detail-code">MASTER KONTRAK</div>
+                        <h3>${esc(contract['Nomor Kontrak'] || '—')}</h3>
+                        <p>
+                            ${esc(
+                                contract['Judul Kontrak']
+                                || contract['Lingkup Pekerjaan']
+                                || 'Tanpa judul'
+                            )}
+                        </p>
+                    </div>
+
+                    <div class="bss-detail-body">
+                        <div class="bss-fields">
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Nomor Tender</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Nomor Tender'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Tanggal Kontrak</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Tanggal Kontrak'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Jangka Waktu</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Jangka Waktu Kontrak'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Tanggal Berakhir Kontrak</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Tanggal Berakhir Kontrak'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Purchase Order</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Nomor Purchase Order'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Pihak Pertama</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Pihak Pertama'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Pihak Kedua</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Pihak Kedua'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Tanggal PO</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Tanggal Purchase Order'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Lingkup Pekerjaan</div>
+                                <div class="bss-field-value">
+                                    ${esc(contract['Lingkup Pekerjaan'] || '—')}
+                                </div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Alamat Pihak Pertama</div>
+                                <div class="bss-field-value">${esc(contract['Alamat Pihak Pertama'] || '—')}</div>
+                            </div>
+
+                            <div class="bss-field">
+                                <div class="bss-field-label">Alamat Pihak Kedua</div>
+                                <div class="bss-field-value">${esc(contract['Alamat Pihak Kedua'] || '—')}</div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bss-detail-card">
+                    <div class="bss-detail-head">
+                        <div class="bss-detail-code">PROFORMA INVOICE</div>
+                        <h3>${fmt(pi.length)} PI</h3>
+                        <p>PI yang terhubung dengan kontrak ini.</p>
+                    </div>
+
+                    <div class="bss-detail-body">
+                        ${
+                            pi.length
+                            ? `
+                                <div class="bss-pi-grid">
+                                    ${pi.map(item => {
+                                        const piNo =
+                                            item['Proforma Invoice No.']
+                                            || item['PI No.']
+                                            || item['pi_no']
+                                            || '—';
+
+                                        return `
+                                            <div class="bss-pi-item">
+                                                <div>
+                                                    <div class="bss-pi-no">
+                                                        ${esc(piNo)}
+                                                    </div>
+                                                    <div class="bss-muted">
+                                                        ${
+                                                            esc(
+                                                                item['Tanggal Performa Invoice']
+                                                                || 'Tanggal belum diisi'
+                                                            )
+                                                        }
+                                                    </div>
+                                                    <div class="bss-pi-meta">
+                                                        <span>Progress ${esc(item['Progress Pekerjaan'] || '0')}%</span>
+                                                        <span class="bss-pi-progress"><i style="width:${Math.min(100,Math.max(0,num(item['Progress Pekerjaan'])))}%"></i></span>
+                                                        <span>${esc(item['Nomor WCC'] ? 'WCC ' + item['Nomor WCC'] : 'Tanpa WCC')}</span>
+                                                        <span>${esc(item['Nomor WO'] || item['_transaction_wo'] ? 'WO ' + (item['Nomor WO'] || item['_transaction_wo']) : 'Tanpa WO')}</span>
+                                                        <span>${fmt(item['_transaction_count'] || 0)} rincian</span>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    class="bss-pi-action"
+                                                    data-pi="${esc(piNo)}"
+                                                >
+                                                    Detail
+                                                </button>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `
+                            : `
+                                <div class="bss-empty">
+                                    Belum ada Proforma Invoice pada kontrak ini.
+                                </div>
+                            `
+                        }
+                    </div>
+                </div>
+
+            </div>
+        `;
+
+        container.querySelectorAll('.bss-pi-action').forEach(button => {
+            button.addEventListener('click', event => {
+                event.stopPropagation();
+
+                const piNo = button.dataset.pi || '';
+
+                /*
+                 * The current Modul 1 detail API is:
+                 * GET /api/modul-1/pi/detail
+                 *
+                 * For now we display the detailed record in a simple
+                 * browser dialog so the dashboard does not duplicate
+                 * the entire Modul 1 editor.
+                 */
+            openPIDetail(no, piNo);
+            });
+        });
+    }
+
+    async function openPIDetail(contractNo, piNo){
+        try{
+            const result = await getJson(
+                '/api/modul-1/pi/detail?nomor_kontrak='
+                + encodeURIComponent(contractNo)
+                + '&pi='
+                + encodeURIComponent(piNo)
+            );
+
+            const data = result.data || {};
+
+            const fields = [
+                ['Nomor Kontrak', data['Nomor Kontrak']], ['Nomor PI', data['Proforma Invoice No.']],
+                ['Tanggal PI', data['Tanggal Performa Invoice']], ['Nomor PO', data['Nomor Purchase Order']],
+                ['Tanggal PO', data['Tanggal Purchase Order']], ['Nomor WCC', data['Nomor WCC']],
+                ['Tanggal WCC', data['Tanggal WCC']], ['Nomor WO', data['Nomor WO']],
+                ['Nomor CTR', data['Nomor CTR']], ['Progress Pekerjaan', clean(data['Progress Pekerjaan']) ? data['Progress Pekerjaan'] + '%' : '—'],
+                ['Jenis BASTP', data['Jenis BASTP']], ['Periode Pekerjaan', [data['Periode Pekerjaan Mulai'],data['Periode Pekerjaan Selesai']].filter(Boolean).join(' s/d ')],
+                ['Keterangan WO', data['Keterangan WO']], ['Lingkup Pekerjaan', data['Lingkup Pekerjaan']]
+            ].filter(item => clean(item[1]));
+            $('bssPiModalTitle').textContent = 'PI ' + (data['Proforma Invoice No.'] || piNo);
+            $('bssPiModalSubtitle').textContent = 'Ringkasan read-only · ' + (data['Nomor Kontrak'] || contractNo);
+            const transactions = Array.isArray(result.transactions) ? result.transactions : [];
+            $('bssPiModalBody').innerHTML = `
+                <div class="bss-modal-section"><h4>Identitas & progres</h4><table class="bss-modal-table">${fields.map(item => `<tr><td>${esc(item[0])}</td><td>${esc(item[1])}</td></tr>`).join('')}</table></div>
+                <div class="bss-modal-section"><h4>Rincian pekerjaan · ${fmt(transactions.length)} item · ${money(result.transaction_total || 0)}</h4>${transactions.length ? `<table class="bss-modal-table"><tbody>${transactions.slice(0,12).map(tx => `<tr><td>${esc(tx.kategori || 'Rincian')}</td><td>${esc(tx.uraian_pekerjaan || tx.deskripsi_pekerjaan || '—')}<br><span class="bss-muted">Qty ${esc(tx.qty || '—')} ${esc(tx.unit || '')} · ${money(tx.total_harga || 0)}</span></td></tr>`).join('')}</tbody></table>` : '<div class="bss-empty">Belum ada rincian transaksi pada PI ini.</div>'}</div>
+            `;
+            $('bssPiModal').classList.add('show');
+
+        }catch(error){
+            showAlert(
+                'Detail PI tidak dapat dimuat: ' + error.message,
+                'error'
+            );
+        }
+    }
+
+    async function refresh(){
+        if(isRefreshing) return;
+        isRefreshing = true;
+        const refreshButton = $('bssRefresh');
+        const originalLabel = refreshButton?.textContent || '↻ Perbarui data';
+        if(refreshButton){ refreshButton.disabled = true; refreshButton.textContent = 'Memuat data…'; }
+        showAlert('Memuat data dashboard…', 'info');
+
+        /*
+         * Reset PI cache because data can change after an edit
+         * in Modul 1.
+         */
+        piCache = {};
+
+        try{
+            await Promise.all([loadContracts(), loadPOs(), loadAnalytics(), loadUnmapped(), loadFinance(), loadDocumentReadiness()]);
+
+            $('bssLastRefresh').textContent =
+                new Date().toLocaleString('id-ID');
+
+            showAlert('Data dashboard berhasil diperbarui.', 'info');
+
+        }catch(error){
+            console.error(error);
+
+            $('bssContractState').innerHTML = `
+                <div class="bss-empty">
+                    Data kontrak gagal dimuat: ${esc(error.message)}
+                </div>
+            `;
+
+            showAlert(
+                'Dashboard tidak dapat mengambil data kontrak: '
+                + error.message,
+                'error'
+            );
+        }finally{
+            isRefreshing = false;
+            if(refreshButton){ refreshButton.disabled = false; refreshButton.textContent = originalLabel; }
+        }
+    }
+
+    $('bssRefresh')?.addEventListener('click', refresh);
+
+    $('bssContractSearch')?.addEventListener(
+        'input',
+        renderContracts
+    );
+
+    $('bssPiModalClose')?.addEventListener('click', () => $('bssPiModal').classList.remove('show'));
+    $('bssPiModal')?.addEventListener('click', event => { if(event.target.id === 'bssPiModal') event.currentTarget.classList.remove('show'); });
+    document.addEventListener('keydown', event => { if(event.key === 'Escape') $('bssPiModal')?.classList.remove('show'); });
+
+    /*
+     * Initial load.
+     */
+    if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', refresh);
+    }else{
+        refresh();
+    }
+
+})();
+</script>

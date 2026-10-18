@@ -1,0 +1,746 @@
+{% extends "layout/base.html" %}
+{% block content %}
+<style>
+.opn-page{max-width:1400px;margin:0 auto;padding:24px 28px 48px;color:#17233b}
+.opn-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px}
+.opn-head h1{margin:0;font-size:30px}.opn-head p{margin:6px 0 0;color:#64748b}
+.opn-head-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.opn-back{border:1px solid #cbd5e1!important;background:#fff!important;color:#334155!important;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.opn-back:hover{border-color:#94a3b8!important;background:#f8fafc!important}
+.opn-badge{border:1px solid #86efac;background:#f0fdf4;color:#047857;border-radius:999px;padding:10px 16px;font-weight:700;white-space:nowrap}
+.opn-card{background:#fff;border:1px solid #dbe2ea;border-radius:14px;box-shadow:0 4px 14px rgba(15,23,42,.06);margin-bottom:18px;overflow:hidden}
+.opn-card-head{padding:15px 20px;border-bottom:1px solid #e5e7eb;font-weight:800}.opn-card-body{padding:20px}
+.opn-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.opn-field{display:flex;flex-direction:column;gap:7px}.opn-field.full{grid-column:1/-1}
+.opn-field label{font-size:13px;font-weight:700;color:#475569}.opn-field input,.opn-field select{height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:0 12px;background:#fff;color:#17233b;box-sizing:border-box}.opn-field input[readonly]{background:#f8fafc}
+.opn-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}.opn-btn{border:0;border-radius:9px;padding:11px 16px;font-weight:800;cursor:pointer}.opn-btn.primary{background:#2563eb;color:#fff}.opn-btn.secondary{background:#e2e8f0;color:#17233b}.opn-btn.green{background:#059669;color:#fff}
+.opn-po-entry{display:flex;gap:8px}.opn-po-entry input{min-width:0;flex:1}.opn-po-entry button{white-space:nowrap}.opn-hint{font-size:12px;color:#64748b;line-height:1.4}.opn-add-item{display:block;margin-top:6px;border:1px solid #2563eb;border-radius:6px;background:#eff6ff;color:#1d4ed8;padding:5px 7px;font-size:11px;font-weight:700;cursor:pointer}.opn-add-item:disabled{opacity:.5;cursor:wait}
+.opn-mapping{margin-bottom:16px;padding:16px;border:1px solid #93c5fd;border-radius:10px;background:#f8fbff}.opn-mapping[hidden]{display:none}.opn-mapping h3{margin:0 0 6px;font-size:16px}.opn-mapping p{margin:0 0 12px;color:#475569;font-size:12px}.opn-mapping .opn-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.opn-mapping .opn-field select,.opn-mapping .opn-field input{width:100%}.opn-mapping .opn-actions{margin-top:12px}
+.opn-scroll{overflow:auto;border:1px solid #dbe2ea;border-radius:10px;max-height:72vh}.opn-table{width:100%;min-width:1450px;border-collapse:separate;border-spacing:0;table-layout:fixed}.opn-table th,.opn-table td{border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:10px 9px;font-size:12px;vertical-align:middle}.opn-table th{position:sticky;top:0;z-index:2;background:#f1f5f9;text-transform:uppercase;font-size:10px;letter-spacing:.035em;line-height:1.35;color:#334155}.opn-table th:first-child,.opn-table td:first-child{width:48px;text-align:center}.opn-table th:nth-child(2),.opn-table td:nth-child(2){width:180px}.opn-table th:nth-child(3),.opn-table td:nth-child(3){width:390px}.opn-table th:nth-child(4),.opn-table td:nth-child(4){width:110px}.opn-table th:nth-child(5),.opn-table td:nth-child(5){width:140px}.opn-table th:nth-child(6),.opn-table td:nth-child(6){width:130px}.opn-table th:nth-child(7),.opn-table td:nth-child(7){width:105px}.opn-table th:nth-child(8),.opn-table td:nth-child(8){width:125px}.opn-table th:nth-child(9),.opn-table td:nth-child(9){width:125px}.opn-table th:nth-child(10),.opn-table td:nth-child(10){width:125px}.opn-table th:nth-child(11),.opn-table td:nth-child(11){width:145px}.opn-table tbody tr:nth-child(even){background:#fafcff}.opn-table tbody tr:hover{background:#f1f7ff}.opn-table td{overflow-wrap:anywhere}.opn-table td.left{text-align:left}.opn-table td.right{text-align:right;font-variant-numeric:tabular-nums}.opn-table td:nth-child(3){line-height:1.45}.opn-table input{width:100%;max-width:110px;height:36px;border:1px solid #cbd5e1;border-radius:7px;padding:0 9px;text-align:right;box-sizing:border-box;font-variant-numeric:tabular-nums}.opn-table input[readonly]{background:#f1f5f9;color:#475569}.opn-table select{height:36px;width:100%;min-width:96px;border:1px solid #cbd5e1;border-radius:7px;padding:0 7px;background:#fff;color:#17233b}.opn-status{display:inline-flex;font-size:10px;font-weight:800;letter-spacing:.035em}.opn-status.mapped{color:#047857}.opn-status.unmapped{color:#b45309}.opn-mapping-warning{margin-top:6px;padding:7px 8px;border:1px solid #fcd34d;border-radius:7px;background:#fffbeb;color:#92400e;font-size:11px;line-height:1.4}
+.opn-row-warning{box-shadow:inset 3px 0 #f59e0b}.opn-table th:last-child,.opn-table td:last-child{border-right:0}.opn-table tbody tr:last-child td{border-bottom:0}
+.preview-wrap{background:#e5e7eb;padding:20px;overflow:auto}.document{background:#fff;color:#000;width:1120px;min-height:790px;margin:0 auto;padding:28px;box-sizing:border-box;font-family:Arial,sans-serif;font-size:10px}.doc-header{width:100%;border-bottom:2px solid #000;padding-bottom:7px;margin-bottom:8px}.doc-header td{border:0;vertical-align:middle}.doc-title{text-align:center;font-size:15px;font-weight:800;text-transform:uppercase}.doc-logo{max-width:140px;max-height:55px;object-fit:contain}.doc-info{width:100%;border-collapse:collapse;margin-bottom:8px}.doc-info td{padding:3px 4px;border:0}.doc-grid{width:100%;border-collapse:collapse}.doc-grid th,.doc-grid td{border:1px solid #000;padding:4px 5px;text-align:center;vertical-align:middle;font-size:9px}.doc-grid th{background:#f1f5f9;text-transform:uppercase}.doc-grid .left{text-align:left}.doc-grid .right{text-align:right}.doc-summary{font-size:10px;font-weight:800;margin-top:7px}.sig-table{width:100%;border-collapse:collapse;margin-top:20px;table-layout:fixed}.sig-table td{border:0;text-align:center;vertical-align:top;padding:4px;font-size:9.5px}.sig-img{height:62px;max-width:150px;object-fit:contain;margin:4px auto;display:block}.empty-sig{height:70px}
+.opn-preview-controls{display:grid;grid-template-columns:1fr 1fr;gap:14px}.opn-file{border:1px dashed #cbd5e1;padding:10px;border-radius:9px}.opn-file label{font-size:12px;font-weight:700;display:block;margin-bottom:6px}.opn-message{margin-top:10px;padding:10px 12px;border-radius:8px;background:#eff6ff;color:#1d4ed8;display:none}.opn-message.error{background:#fef2f2;color:#b91c1c}.opn-total{font-weight:800;text-align:right;margin-top:10px}
+@media(max-width:800px){.opn-grid,.opn-preview-controls,.opn-mapping .opn-grid{grid-template-columns:1fr}.opn-head{flex-direction:column}.opn-page{padding:18px 12px}.opn-po-entry{flex-wrap:wrap}.opn-po-entry button{flex:1}}
+@media print{
+  /* Cetak Opname dilakukan melalui standalone HTML pada popup browser.
+     Halaman aplikasi tidak ikut masuk ke layout print. */
+}</style>
+
+<div class="opn-page">
+  <div class="opn-head">
+    <div><h1>Opname Pekerjaan</h1><p>Dokumen Opname berdasarkan PI dan PO. PS nominal memakai nilai rupiah, PS dengan UOM terukur memakai qty dan fee 15%, sedangkan Estimated Sum memakai qty dan diskon 10%.</p></div>
+    <div class="opn-head-tools">
+      <button type="button" class="opn-btn secondary opn-back" id="btnBackOpname">← Kembali</button>
+      <div id="mappingBadge" class="opn-badge">Memuat...</div>
+    </div>
+  </div>
+
+  <section class="opn-card">
+    <div class="opn-card-head">Informasi Dokumen</div>
+    <div class="opn-card-body">
+      <div class="opn-grid">
+        <div class="opn-field"><label>Nomor Kontrak</label><select id="contractSelect"><option value="">Pilih kontrak...</option></select></div>
+        <div class="opn-field" id="piField"><label>Proforma Invoice</label><select id="piSelect" disabled><option value="">Pilih kontrak terlebih dahulu...</option></select></div>
+        <div class="opn-field"><label>Purchase Order</label><select id="poSelect" disabled><option value="">Pilih PI terlebih dahulu...</option></select></div>
+        <div class="opn-field"><label>Tanggal PO</label><input id="tanggalPO" type="date" readonly><span class="opn-hint">Otomatis mengikuti tanggal pada Master PO.</span></div>
+        <div class="opn-field"><label>Nomor PO belum ada di daftar?</label><div class="opn-po-entry"><input id="poNumberInput" maxlength="100" placeholder="Masukkan nomor PO" disabled><button class="opn-btn secondary" id="usePoBtn" type="button" disabled>Gunakan nomor</button></div><span class="opn-hint">Nomor dipilih dulu; Master PO draft dibuat ketika rincian PI dikonfirmasi.</span></div>
+        <div class="opn-field"><label>Tanggal Opname</label><input id="tanggalOpname" type="date"></div>
+        <div class="opn-field"><label>Lokasi Office</label><input id="lokasiOffice" value="Luwuk"></div>
+        <div class="opn-field"><label>JOB TITLE / WO / PO</label><input id="jobTitle" readonly></div>
+        <div class="opn-field full"><label>CTR / WO / PO No.</label><input id="ctrWoPo" readonly></div>
+      </div>
+      <div id="message" class="opn-message"></div>
+    </div>
+  </section>
+
+  <section class="opn-card">
+    <div class="opn-card-head">Detail Realisasi Pekerjaan</div>
+    <div class="opn-card-body">
+      <div class="opn-mapping" id="poMappingPanel" hidden>
+        <h3 id="mappingTitle">Atur mapping PO</h3>
+        <p id="mappingContext"></p>
+        <details class="opn-hint" style="margin-bottom:12px"><summary>PI yang termasuk dalam kelompok ini</summary><div id="mappingAffectedPis" style="max-height:100px;overflow:auto;padding:6px 0"></div></details>
+        <div class="opn-grid">
+          <div class="opn-field"><label>Tindakan</label><select id="mappingAction"><option value="link">Tautkan ke item PO yang ada</option><option value="create">Buat item PO baru</option><option value="adjust_qty">Tautkan dan revisi Qty item PO</option><option value="adjust_budget" hidden>Revisi plafon Provisional Sum</option></select></div>
+          <div class="opn-field"><label>Cakupan</label><select id="mappingScope"><option value="all">Semua PI serupa + aturan untuk PI berikutnya</option><option value="current">Proses PI ini dulu, tanpa aturan baru</option></select></div>
+          <div class="opn-field" id="mappingItemField"><label>Cari item PO</label><input id="mappingSearch" placeholder="Cari nomor, uraian, atau unit"><select id="mappingItemSelect"></select></div>
+          <div class="opn-field" id="mappingQtyField"><label>Qty PO sesuai dokumen PO</label><input id="mappingQty" type="number" min="0" step="any" placeholder="Wajib konfirmasi Qty PO"></div>
+          <div class="opn-field" id="mappingPriceField"><label>Harga satuan PO</label><input id="mappingPrice" type="number" min="0" step="any" placeholder="Harga satuan PO"></div>
+        </div>
+        <p id="mappingNote" style="margin-top:10px"></p>
+        <div class="opn-actions"><button class="opn-btn secondary" id="mappingCancel" type="button">Batal</button><button class="opn-btn primary" id="mappingConfirm" type="button">Konfirmasi mapping</button></div>
+      </div>
+      <div class="opn-scroll">
+        <table class="opn-table"><thead><tr>
+          <th>No</th><th>Kategori</th><th>Deskripsi Pekerjaan</th><th>UOM</th><th>Qty PO / Plafon</th><th>Unit Price</th><th>Previous</th><th>Actual</th><th>Cumulative</th><th>Remaining</th><th>Status</th>
+        </tr></thead><tbody id="itemsBody"><tr><td colspan="11" style="text-align:center">Pilih PI untuk memuat rincian pekerjaan.</td></tr></tbody></table>
+      </div>
+      <div class="opn-total" id="totalLine">Total Cumulative: Rp 0,00</div>
+      <div class="opn-actions"><button class="opn-btn secondary" id="reloadBtn" type="button">Muat Ulang</button><button class="opn-btn primary" id="saveBtn" type="button">Simpan Opname</button></div>
+    </div>
+  </section>
+
+  <section class="opn-card">
+    <div class="opn-card-head">Parameter Dokumen</div>
+    <div class="opn-card-body">
+      <div class="opn-preview-controls">
+        <div class="opn-file"><label>Logo Pihak Pertama</label><input id="logo1" type="file" accept="image/png,image/jpeg"></div>
+        <div class="opn-file"><label>Logo Pihak Kedua</label><input id="logo2" type="file" accept="image/png,image/jpeg"></div>
+        <div class="opn-file"><label>Tanda Tangan Prepared by</label><input id="sig1" type="file" accept="image/png,image/jpeg"></div>
+        <div class="opn-file"><label>Tanda Tangan Reviewed by</label><input id="sig2" type="file" accept="image/png,image/jpeg"></div>
+        <div class="opn-file"><label>Tanda Tangan Approved by</label><input id="sig3" type="file" accept="image/png,image/jpeg"></div>
+      </div>
+      <div class="opn-grid" style="margin-top:14px">
+        <div class="opn-field"><label>Prepared by (PI)</label><input id="preparedName" readonly placeholder="Mengikuti data PI"></div>
+        <div class="opn-field"><label>Jabatan Prepared by</label><input id="preparedTitle" readonly placeholder="Mengikuti data PI"></div>
+        <div class="opn-field"><label>Reviewed by (PI)</label><input id="reviewedName" readonly placeholder="Kosong bila tidak ada layer kedua"></div>
+        <div class="opn-field"><label>Jabatan Reviewed by</label><input id="reviewedTitle" readonly placeholder="Mengikuti data PI"></div>
+        <div class="opn-field"><label>Approved by (PI)</label><input id="approvedName" readonly placeholder="Mengikuti data PI"></div>
+        <div class="opn-field"><label>Jabatan Approved by</label><input id="approvedTitle" readonly placeholder="Mengikuti data PI"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="opn-card" id="documentPreviewCard">
+    <div class="opn-card-head">Preview Dokumen</div>
+    <div class="preview-wrap" id="documentPreview"></div>
+    <div class="opn-card-body no-print"><div class="opn-actions"><button class="opn-btn green" id="printBtn" type="button">Cetak Dokumen Opname</button><button class="opn-btn primary" id="downloadBtn" type="button">Download PDF Opname</button></div></div>
+  </section>
+</div>
+
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const params=new URLSearchParams(location.search);
+  const canWritePo={{ 'true' if can_write_po else 'false' }};
+  let state={contract:params.get('nomor_kontrak')||'',pi:params.get('nomor_pi')||'',po:params.get('nomor_po')||'',context:null,items:[],fromPiContext:!!params.get('nomor_pi')};
+  let mappingState=null;
+  let images={logo1:'',logo2:'',sig1:'',sig2:'',sig3:''};
+  const standardUoms=['Month','Day','Days','man-days','Bulan','Jam','Ls','AU','Kwh','Orang','Set','Pallet','Pcs','Ea','Unit','Trip','Roll','m3'];
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money=v=>new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v||0));
+  const num=v=>Number(v||0);
+  const emptySigner=v=>{const s=String(v??'').trim().toLowerCase();return !s||['nan','none','null','-','kosong','tidak ada','tidak ada / kosong','--- (tidak ada / kosong) ---'].includes(s)};
+  const chooseSigner=(primary,fallback)=>emptySigner(primary)?(emptySigner(fallback)?'':fallback):primary;
+  const fmtDate=v=>{if(!v)return '';const d=new Date(String(v).slice(0,10)+'T00:00:00');return isNaN(d)?String(v):d.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});};
+  function uomSelect(x,index){
+    const current=String(x.uom||'').trim();
+    const options=[...new Set([current,...standardUoms].filter(Boolean))];
+    return `<td><select class="opn-uom-select" data-uom="${index}" title="Pilih UOM dari daftar Master Referensi">${options.map(v=>`<option value="${esc(v)}"${v===current?' selected':''}>${esc(v)}</option>`).join('')}</select></td>`;
+  }
+  function msg(text,error=false){const e=$('message');e.textContent=text;e.className='opn-message'+(error?' error':'');e.style.display='block';}
+  function hideMsg(){$('message').style.display='none';}
+  async function getJSON(url,opts={}){const r=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(opts.headers||{})},...opts});let j={};try{j=await r.json()}catch{}if(!r.ok||j.success===false)throw new Error(j.message||('HTTP '+r.status));return j;}
+  let piLoadSequence=0,poLoadSequence=0,contextLoadSequence=0,previousRefreshSequence=0;
+  async function loadContracts(){
+    const j=await getJSON('/opname/api/pi');
+    const contracts=[...new Set((j.data||[]).map(x=>String(x.nomor_kontrak||'').trim()).filter(Boolean))];
+
+    // Jika halaman dibuka dari Modul 2, kontrak + PI sudah merupakan konteks dokumen.
+    // Jangan meminta user memilih ulang.
+    if(state.fromPiContext){
+      if(!state.contract || !state.pi){
+        msg('Konteks PI tidak lengkap. Buka Opname dari PI yang dipilih di Modul 2.',true);
+        return;
+      }
+      $('contractSelect').innerHTML=`<option value="${esc(state.contract)}">${esc(state.contract)}</option>`;
+      $('contractSelect').value=state.contract;
+      $('contractSelect').disabled=true;
+      await loadPI();
+      return;
+    }
+
+    $('contractSelect').innerHTML='<option value="">Pilih kontrak...</option>'+contracts.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+    if(state.contract){$('contractSelect').value=state.contract;await loadPI();} else $('piSelect').disabled=true;
+  }
+  async function loadPI(){
+    const sequence=++piLoadSequence;
+    const selectedContract=String($('contractSelect').value||'').trim();
+    const requestedPo=state.fromPiContext ? String(state.po||'').trim() : '';
+    state.contract=selectedContract;
+    state.po='';
+    $('poSelect').disabled=true;
+    $('poSelect').innerHTML='<option value="">Pilih PI terlebih dahulu...</option>';
+    $('poNumberInput').disabled=true;$('usePoBtn').disabled=true;$('poNumberInput').value='';
+    clearContext();
+
+    if(!state.contract){
+      state.pi='';
+      $('piField').style.display='';
+      $('piSelect').disabled=true;
+      $('piSelect').innerHTML='<option value="">Pilih kontrak terlebih dahulu...</option>';
+      return;
+    }
+
+    const j=await getJSON('/opname/api/pi?nomor_kontrak='+encodeURIComponent(state.contract));
+    if(sequence!==piLoadSequence||selectedContract!==String($('contractSelect').value||'').trim())return;
+    const list=j.data||[];
+
+    // PI dari URL adalah PI yang sudah dipilih user sebelumnya.
+    // Tidak boleh dicari/ditentukan hanya berdasarkan nomor kontrak.
+    if(state.fromPiContext){
+      const requestedPi=String(state.pi||'').trim();
+      const exists=list.some(x=>String(x.pi_no||'').trim()===requestedPi);
+      if(!exists){
+        $('piField').style.display='block';
+        $('piSelect').disabled=true;
+        $('piSelect').innerHTML=`<option value="">PI ${esc(requestedPi)} tidak ditemukan</option>`;
+        msg(`PI ${requestedPi} tidak ditemukan pada kontrak ${state.contract}. Buka Opname kembali dari PI yang benar.`,true);
+        return;
+      }
+
+      // Tampilkan PI sebagai informasi readonly, bukan input ulang.
+      $('piField').style.display='none';
+      $('piSelect').innerHTML=`<option value="${esc(requestedPi)}">${esc(requestedPi)}</option>`;
+      $('piSelect').value=requestedPi;
+      $('piSelect').disabled=true;
+      $('piSelect').title='PI mengikuti PI yang dipilih sebelumnya di Modul 2';
+      await loadPO(requestedPo);
+      return;
+    }
+
+    // Akses langsung ke Opname tanpa konteks PI: PI tetap dipilih manual.
+    state.pi='';
+    $('piField').style.display='';
+    $('piSelect').disabled=!list.length;
+    $('piSelect').innerHTML='<option value="">Pilih PI...</option>'+list.map(x=>`<option value="${esc(x.pi_no||'')}">${esc(x.pi_no||'')}</option>`).join('');
+  }
+  async function loadPO(forcedPo=''){
+    const sequence=++poLoadSequence;
+    state.pi=$('piSelect').value;
+    const selectedPi=state.pi, selectedContract=state.contract;
+    const requestedPo=forcedPo||state.po;
+    state.po='';
+    $('poSelect').disabled=true;
+    $('poSelect').innerHTML='<option>Memuat...</option>';
+    $('poNumberInput').disabled=true;$('usePoBtn').disabled=true;
+    clearContext();
+    if(!state.contract||!state.pi)return;
+
+    const j=await getJSON('/opname/api/po?nomor_kontrak='+encodeURIComponent(state.contract)+'&nomor_pi='+encodeURIComponent(state.pi));
+    if(sequence!==poLoadSequence||selectedPi!==String($('piSelect').value||'')||selectedContract!==state.contract)return;
+    const list=(j.data||[]).map(String).map(x=>x.trim()).filter(x=>x&&x!=='-'&&x!=='0');
+
+    // PO boleh kosong. Ini penting untuk PI yang belum mempunyai nomor PO.
+    $('poSelect').innerHTML='<option value="">Belum ada PO / kosongkan</option>'+list.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+    $('poSelect').disabled=false;
+    $('poNumberInput').disabled=false;$('usePoBtn').disabled=false;
+
+    if(requestedPo){
+      if(!list.includes(requestedPo))$('poSelect').add(new Option(requestedPo,requestedPo));
+      $('poSelect').value=requestedPo;
+      state.po=requestedPo;
+      await loadContext();
+    }else if(list.length>0 && !requestedPo){
+      // list[0] adalah PO aktual dari rincian PI. PO Master hanya fallback
+      // setelah PO aktual PI, sehingga tidak salah mengambil PO kontrak lain.
+      $('poSelect').value=list[0];
+      state.po=list[0];
+      await loadContext();
+    }else{
+      // Tidak ada PO atau user memilih konteks PI tanpa PO.
+      $('poSelect').value='';
+      state.po='';
+      await loadContext();
+    }
+  }
+  async function usePoNumber(){
+    const po=String($('poNumberInput').value||'').trim();
+    if(!state.contract||!state.pi){msg('Pilih kontrak dan PI terlebih dahulu.',true);return;}
+    if(!po||['-','0','NONE','NULL'].includes(po.toUpperCase())){msg('Masukkan nomor PO yang valid.',true);return;}
+    if(![...$('poSelect').options].some(option=>option.value===po))$('poSelect').add(new Option(po,po));
+    $('poSelect').value=po;
+    state.po=po;
+    await loadContext();
+  }
+  function clearContext(){previousRefreshSequence++;contextLoadSequence++;closeMapping();state.context=null;state.items=[];$('mappingBadge').textContent='Belum dipilih';$('itemsBody').innerHTML='<tr><td colspan="11" style="text-align:center">Memuat rincian PI...</td></tr>';$('jobTitle').value='';$('ctrWoPo').value='';$('tanggalPO').value='';$('tanggalOpname').value='';renderPreview();}
+  async function refreshPreviousForDate(){
+    if(!state.contract||!state.pi||!state.items.length)return;
+    const sequence=++previousRefreshSequence;
+    const url='/opname/api/context?nomor_kontrak='+encodeURIComponent(state.contract)+'&nomor_pi='+encodeURIComponent(state.pi)+'&nomor_po='+encodeURIComponent(state.po)+'&tanggal_opname='+encodeURIComponent($('tanggalOpname').value||'');
+    try{
+      const context=await getJSON(url);
+      if(sequence!==previousRefreshSequence)return;
+      const byKey=new Map((context.items||[]).map(item=>[item.item_key,item]));
+      for(const item of state.items){const updated=byKey.get(item.item_key);if(!updated)continue;item.qty_previous=num(updated.qty_previous);item.nilai_previous=num(updated.nilai_previous);}
+      renderItems();renderPreview();
+    }catch(error){msg('Gagal memperbarui Previous sesuai tanggal Opname: '+error.message,true);}
+  }
+  async function loadContext(){
+    // PO bersifat opsional. Rincian pekerjaan SELALU diambil dari PI.
+    closeMapping();
+    state.po=$('poSelect').value||'';
+    if(!state.contract||!state.pi)return;
+    const sequence=++contextLoadSequence;
+    hideMsg();
+    $('itemsBody').innerHTML='<tr><td colspan="11" style="text-align:center">Mengambil rincian transaksi PI...</td></tr>';
+    try{
+      const j=await getJSON('/opname/api/context?nomor_kontrak='+encodeURIComponent(state.contract)+'&nomor_pi='+encodeURIComponent(state.pi)+'&nomor_po='+encodeURIComponent(state.po)+'&tanggal_opname='+encodeURIComponent($('tanggalOpname').value||''));
+      if(sequence!==contextLoadSequence)return;
+      state.context=j;
+      // Keep the inferred PI PO in page state too, so preview/mismatch checks
+      // and the save payload use the same PO that the backend used for mapping.
+      if(j.nomor_po&&state.po!==String(j.nomor_po)){state.po=String(j.nomor_po);if(![...$('poSelect').options].some(option=>option.value===state.po))$('poSelect').add(new Option(state.po,state.po));$('poSelect').value=state.po;}
+      state.items=(j.items||[]).map(x=>({...x,qty_po:x.mapping_status==='MAPPED'?x.qty_po??null:x.saved?.qty_po??x.qty_po??null,volume_actual:x.saved?.item_key_match?num(x.saved.volume_actual):num(x.qty_pi),nilai_actual:num(x.saved?.nilai_actual??x.nilai_actual??(x.is_provisional?x.nilai_pi:0))}));
+      $('tanggalPO').value=j.master_po?.tanggal_po?String(j.master_po.tanggal_po).slice(0,10):'';
+      images.sig1=j.saved?.ttd_1||images.sig1;images.sig2=j.saved?.ttd_2||images.sig2;images.sig3=j.saved?.ttd_3||images.sig3;
+      const pi=j.master_pi||{};
+      $('preparedName').value=pi.prepared_by_name||'';
+      $('preparedTitle').value=pi.prepared_by_title||'';
+      $('reviewedTitle').value=pi.reviewed_by_title||pi.selaku||'';
+      const approved2=chooseSigner(pi.approved_by_2, '');
+      const approved1=chooseSigner(pi.approved_by_1, '');
+      // Struktur aktor PI:
+      // - hanya Approved 1: Prepared by + Approved by (tanpa Reviewed by)
+      // - Approved 1 dan Approved 2: Approved 1 menjadi Reviewed by,
+      //   Approved 2 menjadi Approved by.
+      const hasSecondApprover=!emptySigner(approved2);
+      $('reviewedName').value=hasSecondApprover?approved1:'';
+      $('reviewedTitle').value=hasSecondApprover?(pi.approved_by_title_1||''):'';
+      $('approvedName').value=hasSecondApprover?approved2:approved1;
+      $('approvedTitle').value=hasSecondApprover?(pi.approved_by_title_2||''):(pi.approved_by_title_1||'');
+      if(!state.items.length){
+        $('mappingBadge').textContent='PI tidak memiliki rincian transaksi';
+        $('mappingBadge').style.color='#b91c1c';
+        $('itemsBody').innerHTML='<tr><td colspan="11" style="text-align:center;color:#b91c1c;padding:18px">Rincian transaksi untuk PI ini tidak ditemukan.</td></tr>';
+        msg('Rincian transaksi PI tidak ditemukan. Periksa nomor kontrak dan PI pada database_transaksi_rincian.',true);
+        renderPreview();
+        return;
+      }
+      const mappedCount=state.items.filter(x=>x.mapping_status==='MAPPED').length;
+      $('mappingBadge').textContent=state.po?`${mappedCount}/${state.items.length} rincian PI ter-mapping`:'PI DETAIL — belum ada PO';
+      $('mappingBadge').style.color=mappedCount===state.items.length?'#047857':'#475569';
+      $('jobTitle').value=j.document?.job_title||'';
+      $('ctrWoPo').value=j.document?.ctr_wo_po||`${state.contract}${state.po?' / '+state.po:''}`;
+      if(j.tanggal_selesai)$('tanggalOpname').value=String(j.tanggal_selesai).slice(0,10);else if(j.tanggal_pi)$('tanggalOpname').value=String(j.tanggal_pi).slice(0,10);else if(j.saved?.tanggal_opname)$('tanggalOpname').value=String(j.saved.tanggal_opname).slice(0,10);else if(!$('tanggalOpname').value)$('tanggalOpname').value=new Date().toISOString().slice(0,10);
+      if(j.saved?.lokasi_office)$('lokasiOffice').value=j.saved.lokasi_office;
+      renderItems();renderPreview();
+    }catch(e){
+      if(sequence!==contextLoadSequence)return;
+      state.items=[];
+      $('itemsBody').innerHTML='<tr><td colspan="11" style="text-align:center;color:#b91c1c;padding:18px">Gagal mengambil rincian transaksi PI.</td></tr>';
+      $('mappingBadge').textContent='ERROR MEMUAT RINCIAN';
+      $('mappingBadge').style.color='#b91c1c';
+      msg('Gagal mengambil rincian PI: '+e.message,true);
+      renderPreview();
+    }
+  }
+  async function reloadCurrentContext(){
+    const contract=String($('contractSelect').value||state.contract||'').trim();
+    const pi=String(state.pi||$('piSelect').value||'').trim();
+    const po=String(state.po||$('poSelect').value||'').trim();
+    try{
+      state.contract=contract;
+      state.pi=pi;
+      state.po=po;
+      await loadContracts();
+      if(state.fromPiContext||!pi)return;
+      const exists=[...$('piSelect').options].some(option=>option.value===pi);
+      if(!exists){msg(`PI ${pi} tidak lagi ditemukan pada kontrak ${contract}. Pilih PI terbaru dari daftar.`,true);return;}
+      $('piSelect').value=pi;
+      state.pi=pi;
+      await loadPO(po);
+    }catch(error){msg('Gagal memuat ulang daftar PI/PO: '+error.message,true);}
+  }
+  function feeInclusiveUnitPrice(x){const qty=num(x.qty_pi),value=num(x.nilai_pi),factor=num(x.formula_factor)||1.15;return x.is_fee_based_quantity&&qty>0?value/qty:(x.is_fee_based_quantity?num(x.unit_price)*factor:num(x.unit_price));}
+  function cumulativeValue(x){return x.is_provisional?num(x.nilai_previous)+num(x.nilai_actual):x.is_fee_based_quantity?num(x.nilai_previous)+num(x.volume_actual)*feeInclusiveUnitPrice(x):(num(x.qty_previous)+num(x.volume_actual))*num(x.unit_price);}
+  function provisionalActualTotal(){return state.items.reduce((sum,x)=>sum+(x.is_provisional&&!x.po_mismatch?num(x.nilai_actual):0),0);}
+  function updateTotalLine(){$('totalLine').textContent='Total Cumulative: Rp '+money(state.items.reduce((a,x)=>a+cumulativeValue(x),0));}
+  function renderItems(){
+    const body=$('itemsBody');if(!state.items.length){body.innerHTML='<tr><td colspan="11" style="text-align:center">Tidak ada item.</td></tr>';return;}
+    body.innerHTML=state.items.map((x,i)=>{const prev=num(x.qty_previous),actual=num(x.volume_actual),cum=prev+actual,rem=x.qty_po==null?null:num(x.qty_po)-cum;const poMismatch=x.nomor_po&&!['-','0'].includes(String(x.nomor_po))&&String(x.nomor_po)!==state.po;
+      if(x.is_provisional){const prior=num(x.nilai_previous),current=num(x.nilai_actual),budget=x.po_plafon==null?null:num(x.po_plafon),remaining=budget==null||x.shared_po_item?null:budget-prior-provisionalActualTotal();return `<tr>
+      <td>${i+1}</td><td class="left">${esc(x.kategori||'-')}</td><td class="left"><b>${esc(x.deskripsi_pekerjaan||'-')}</b><div class="opn-hint">Keterangan PI: ${esc(x.keterangan||'-')}</div>${x.master_keterangan&&x.master_keterangan!==x.keterangan?`<div class="opn-hint" style="color:#b45309">Keterangan Master PO: ${esc(x.master_keterangan)}</div>`:''}<div class="opn-hint">Qty PI: ${money(x.qty_pi)} · Nilai PI: Rp ${money(x.nilai_pi)}${x.nomor_po?` · PO PI: ${esc(x.nomor_po)}`:''}</div></td>${uomSelect(x,i)}
+      <td>${budget==null?'-':x.shared_po_item?'Satu pos PO':'Rp '+money(budget)}</td><td class="right">At Cost Rp ${money(x.unit_price)}<div class="opn-hint">PI termasuk fee 15%</div></td><td>Rp ${money(prior)}</td>
+      <td><input type="number" min="0" step="0.01" data-actual-amount="${i}" value="${current}" title="Nilai PI sebagai awal; ubah bila aktual berbeda. Sudah termasuk fee 15%."></td><td data-ps-cumulative>Rp ${money(prior+current)}</td><td data-ps-remaining>${remaining==null?'-':'Rp '+money(remaining)}</td>
+      <td><span class="opn-status ${x.mapping_status==='MAPPED'?'mapped':'unmapped'}">${esc(x.mapping_status||'UNMAPPED')}</span>${poMismatch?'<div class="opn-hint">Pilih PO sesuai PI</div>':canWritePo&&state.po&&x.mapping_status!=='MAPPED'?`<button class="opn-add-item" type="button" data-map-item="${i}">Atur mapping PO</button>`:''}</td></tr>`;}
+      return `<tr class="${x.mapping_issue?'opn-row-warning':''}">
+      <td>${i+1}</td><td class="left">${esc(x.kategori||'-')}</td><td class="left"><b>${esc(x.deskripsi_pekerjaan||'-')}</b><div class="opn-hint">Keterangan PI: ${esc(x.keterangan||'-')}</div>${x.master_keterangan&&x.master_keterangan!==x.keterangan?`<div class="opn-hint" style="color:#b45309">Keterangan Master PO: ${esc(x.master_keterangan)}</div>`:''}<div style="font-size:10px;color:#64748b;margin-top:3px">Qty PI: ${x.qty_pi==null?'-':money(x.qty_pi)}${x.nomor_po?` · PO PI: ${esc(x.nomor_po)}`:''}</div></td>${uomSelect(x,i)}
+      <td><input type="number" min="0" step="0.01" data-qty-po="${i}" value="${x.qty_po==null?'':esc(x.qty_po)}" placeholder="${x.shared_po_item?'Satu item PO':x.mapping_status==='MAPPED'?'PO':'Manual'}" ${x.mapping_status==='MAPPED'?'readonly':''}></td><td class="right">${money(x.unit_price)}${x.is_fee_based_quantity?`<div class="opn-hint">${num(x.formula_factor)<1?'Estimated Sum · diskon 10%':'At Cost + Fee 15%'}</div>`:''}</td><td>${money(prev)}</td>
+      <td><input type="number" min="0" step="0.01" data-actual="${i}" value="${actual}"></td><td>${money(cum)}</td><td>${x.qty_po==null||x.qty_po===''?'-':money(rem)}</td>
+      <td><span class="opn-status ${x.mapping_status==='MAPPED'?'mapped':'unmapped'}">${esc(x.mapping_status||'UNMAPPED')}</span>${x.mapping_issue?`<div class="opn-mapping-warning">${esc(x.mapping_issue)}</div>`:''}${poMismatch?'<div class="opn-hint">Pilih PO sesuai PI</div>':canWritePo&&state.po&&x.mapping_status!=='MAPPED'?`<button class="opn-add-item" type="button" data-map-item="${i}">Atur mapping PO</button>`:''}</td></tr>`}).join('');
+    body.querySelectorAll('[data-map-item]').forEach(el=>el.addEventListener('click',()=>openMapping(Number(el.dataset.mapItem))));
+    body.querySelectorAll('[data-uom]').forEach(el=>el.addEventListener('change',()=>{state.items[Number(el.dataset.uom)].uom=el.value;renderPreview();}));
+    body.querySelectorAll('[data-qty-po]').forEach(el=>el.addEventListener('input',()=>{
+      const index=Number(el.dataset.qtyPo);
+      state.items[index].qty_po=el.value===''?'':num(el.value);
+      const row=el.closest('tr');
+      if(row){
+        const prev=num(state.items[index].qty_previous), actual=num(state.items[index].volume_actual), cum=prev+actual;
+        const remaining=el.value===''?'-':money(num(el.value)-cum);
+        const cells=row.querySelectorAll('td');
+        if(cells[9])cells[9].textContent=remaining;
+      }
+      renderPreview();
+    }));
+    body.querySelectorAll('[data-actual]').forEach(el=>el.addEventListener('input',()=>{state.items[Number(el.dataset.actual)].volume_actual=num(el.value);updateTotalLine();renderPreview();}));
+    body.querySelectorAll('[data-actual-amount]').forEach(el=>el.addEventListener('input',()=>{const x=state.items[Number(el.dataset.actualAmount)];x.nilai_actual=num(el.value);const row=el.closest('tr');row.querySelector('[data-ps-cumulative]').textContent='Rp '+money(num(x.nilai_previous)+num(x.nilai_actual));const anchor=state.items.find(y=>y.is_provisional&&!y.shared_po_item&&y.po_plafon!=null);if(anchor){const anchorRow=body.querySelectorAll('tr')[state.items.indexOf(anchor)];const left=num(anchor.po_plafon)-num(anchor.nilai_previous)-provisionalActualTotal();const remainingCell=anchorRow?.querySelector('[data-ps-remaining]');if(remainingCell)remainingCell.textContent='Rp '+money(left);}updateTotalLine();renderPreview();}));
+    updateTotalLine();
+  }
+  function closeMapping(){mappingState=null;$('poMappingPanel').hidden=true;}
+  function filterMappingItems(){
+    if(!mappingState)return;
+    const term=String($('mappingSearch').value||'').trim().toLowerCase();
+    const selected=$('mappingItemSelect').value;
+    const list=(mappingState.options.items||[]).filter(x=>/\b(provisional|professional)\s+sum\b/i.test(x.kategori||'')===!!mappingState.options.is_provisional_category).filter(x=>!term||`${x.item_no} ${x.kategori||''} ${x.deskripsi_pekerjaan||''} ${x.uom||''} ${x.keterangan||''}`.toLowerCase().includes(term));
+    $('mappingItemSelect').innerHTML='<option value="">Pilih item PO...</option>'+list.map(x=>`<option value="${esc(x.id)}">#${esc(x.item_no)} · ${esc(x.deskripsi_pekerjaan)} (${esc(x.uom||'-')}) · ${esc(x.keterangan||'Tanpa keterangan')} · Qty ${money(x.qty_po)} · Rp ${money(x.unit_price)}</option>`).join('');
+    if(list.some(x=>String(x.id)===selected))$('mappingItemSelect').value=selected;
+    else if(list.length===1)$('mappingItemSelect').value=String(list[0].id);
+    syncMappingFields();
+  }
+  function syncMappingFields(){
+    if(!mappingState)return;
+    const action=$('mappingAction').value;
+    const provisional=!!mappingState.options.is_provisional;
+    $('mappingItemField').style.display=action==='create'?'none':'';
+    $('mappingQtyField').style.display=provisional||action==='link'?'none':'';
+    $('mappingPriceField').style.display=action==='create'||action==='adjust_budget'?'':'none';
+    $('mappingPriceField').querySelector('label').textContent=provisional?'Nilai At Cost Provisional Sum sebelum fee (Rp)':'Harga satuan PO';
+    const item=(mappingState.options.items||[]).find(x=>String(x.id)===$('mappingItemSelect').value);
+    if(action==='adjust_qty'&&item&&!$('mappingQty').value)$('mappingQty').value=String(item.qty_po??'');
+    if(action==='adjust_budget'&&item&&!$('mappingPrice').value)$('mappingPrice').value=String(item.unit_price??'');
+    const actionNote=provisional?(action==='link'?'Tautan tidak mengubah plafon PO.':'Masukkan nilai at cost sebelum fee; plafon dihitung otomatis dengan fee 15%. Qty pos nominal otomatis 1.'):(action==='link'?'Tautan tidak mengubah Qty atau plafon PO.':(action==='adjust_qty'?'Isi Qty PO akhir sesuai dokumen; nilai PO dihitung ulang dari Qty × harga dan faktor kategori.':'Qty PI hanya referensi. Isi Qty dan harga PO yang benar; plafon dihitung otomatis dari faktor kategori.'));
+    $('mappingNote').textContent=actionNote+($('mappingScope').value==='all'?(provisional?' Semua rincian Provisional Sum pada kontrak dan PO ini, termasuk uraian, unit, dan harga berbeda, akan memakai pos yang sama; berlaku pula untuk PI berikutnya.':' Aturan ini juga berlaku pada PI berikutnya dengan kategori, uraian, dan unit yang sama, meski harga PI berbeda.'):' Hanya PI ini diproses; tidak dibuat aturan baru untuk PI berikutnya.');
+  }
+  async function openMapping(index){
+    const item=state.items[index];if(!item||!state.po)return;
+    const selected={contract:state.contract,pi:state.pi,po:state.po};
+    try{
+      const q=new URLSearchParams({nomor_kontrak:selected.contract,nomor_pi:selected.pi,nomor_po:selected.po,item_key:item.item_key});
+      const options=await getJSON('/opname/api/po/mapping-options?'+q);
+      if(state.contract!==selected.contract||state.pi!==selected.pi||state.po!==selected.po)return;
+      mappingState={item,selected,options};
+      const provisional=!!options.is_provisional;
+      $('mappingAction').querySelector('option[value="adjust_qty"]').hidden=provisional;
+      $('mappingAction').querySelector('option[value="adjust_budget"]').hidden=!provisional;
+      $('mappingTitle').textContent=`Atur item PO ${selected.po}`;
+      $('mappingContext').textContent=`${options.is_provisional_category?'Provisional Sum':item.deskripsi_pekerjaan} · Keterangan PI: ${item.keterangan||'-'} · digunakan pada ${options.affected_row_count} rincian di ${options.affected_pi_count} PI. ${options.already_mapped_count} rincian sudah punya tautan dan tidak akan ditimpa. Variasi harga PI: ${(options.price_variants||[]).join(', ')||'-'}.`;
+      $('mappingAffectedPis').textContent=(options.affected_pi_numbers||[]).join(' · ');
+      $('mappingSearch').value='';$('mappingQty').value='';$('mappingPrice').value=provisional?'':String(item.unit_price??'');
+      $('mappingScope').value=(options.suggested_item_ids||[]).length>1||(!provisional&&(options.price_variants||[]).length>1)?'current':'all';
+      $('mappingAction').value=(options.suggested_item_ids||[]).length?'link':'create';
+      $('poMappingPanel').hidden=false;filterMappingItems();
+      const suggested=options.suggested_item_ids||[];
+      if(suggested.length===1){$('mappingItemSelect').value=String(suggested[0]);syncMappingFields();}
+      $('poMappingPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+    }catch(e){msg('Gagal memuat pilihan mapping PO: '+e.message,true);}
+  }
+  async function confirmMapping(){
+    if(!mappingState)return;
+    const {item,selected,options}=mappingState;
+    const action=$('mappingAction').value;
+    const scope=$('mappingScope').value;
+    const poItemId=$('mappingItemSelect').value;
+    const qty=$('mappingQty').value;
+    const price=$('mappingPrice').value;
+    if(action!=='create'&&!poItemId){msg('Pilih item PO terlebih dahulu.',true);return;}
+    if(!options.is_provisional&&action!=='link'&&(qty===''||Number(qty)<0)){msg('Qty PO sesuai dokumen wajib diisi.',true);return;}
+    if((action==='create'||action==='adjust_budget')&&(price===''||Number(price)<0)){msg('Harga/plafon PO wajib diisi.',true);return;}
+    if(!confirm(`Konfirmasi ${action==='create'?'buat item baru':action==='adjust_qty'?'revisi Qty dan tautkan':action==='adjust_budget'?'revisi plafon PS dan tautkan':'tautkan'} pada PO ${selected.po}? Cakupan: ${scope==='all'?`${options.affected_pi_count} PI serupa dan PI berikutnya`:'PI ini tanpa aturan baru'}. Tautan lama ke item lain tidak diubah.`))return;
+    const edits=new Map(state.items.map(x=>[x.item_key,{qty_po:x.qty_po,volume_actual:x.volume_actual,nilai_actual:x.nilai_actual}]));
+    const editsByNo=new Map(state.items.map(x=>[x.item_no,{qty_po:x.qty_po,volume_actual:x.volume_actual,nilai_actual:x.nilai_actual}]));
+    $('mappingConfirm').disabled=true;
+    try{
+      const j=await getJSON('/opname/api/po/reconcile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nomor_kontrak:selected.contract,nomor_pi:selected.pi,nomor_po:selected.po,item_key:item.item_key,action,scope,po_item_id:poItemId,qty_po:qty,unit_price:price})});
+      if(state.contract!==selected.contract||state.pi!==selected.pi||state.po!==selected.po){msg(j.message);return;}
+      await loadContext();
+      for(const current of state.items){const old=edits.get(current.item_key)||editsByNo.get(current.item_no);if(!old)continue;current.volume_actual=old.volume_actual;current.nilai_actual=old.nilai_actual;if(current.mapping_status!=='MAPPED')current.qty_po=old.qty_po;}
+      renderItems();renderPreview();msg(j.message+(j.warning?' '+j.warning:''),!!j.warning);
+    }catch(e){msg('Gagal mapping PO: '+e.message,true);}finally{$('mappingConfirm').disabled=false;}
+  }
+  function documentRows(){
+    const rows=new Map();
+    state.items.forEach((x,i)=>{
+      const rawUom=String(x.uom||'').trim().toLocaleLowerCase().replaceAll('_',' ').replace(/[^a-z0-9]+/g,' ').trim();
+      const uomKey=({bulan:'month',months:'month',month:'month',hari:'day',days:'day',day:'day','man day':'day','man days':'day',manday:'day',ea:'ea',each:'ea',unit:'ea',pcs:'ea',ls:'ls',lumpsum:'ls','lump sum':'ls'})[rawUom]||rawUom;
+      const key=x.is_provisional?`ps-${x.item_key||i}`:x.is_fee_based_quantity?`ps-qty-${x.item_key||i}`:x.id?`po-${x.id}-uom-${uomKey}`:`pi-${x.item_key||i}`;
+      if(!rows.has(key))rows.set(key,{...x,volume_actual:num(x.volume_actual)});
+      else rows.get(key).volume_actual+=num(x.volume_actual);
+    });
+    return [...rows.values()];
+  }
+    function previewRows(){return documentRows().map((x,i)=>{if(x.is_provisional){const base=x.po_plafon==null||x.shared_po_item?null:num(x.po_plafon),prev=num(x.nilai_previous),act=num(x.nilai_actual),cum=prev+act,rem=base==null?null:base-prev-provisionalActualTotal();return `<tr><td>1.${i+1}</td><td class="left"><b>${esc(x.kategori||'')}</b><br>${esc(x.deskripsi_pekerjaan||'')}<br><small>Keterangan: ${esc(x.keterangan||x.master_keterangan||'-')} · At Cost + Fee 15% · Nilai PI: Rp ${money(x.nilai_pi)}</small></td><td>${esc(x.uom||'')}</td><td>-</td><td class="right">-</td><td class="right">${base==null?'-':money(base)}</td><td>-</td><td class="right">${money(prev)}</td><td>-</td><td class="right">${money(act)}</td><td>-</td><td class="right">${money(cum)}</td><td>-</td><td class="right">${rem==null?'-':money(rem)}</td></tr>`;}const po=num(x.qty_po),price=num(x.unit_price),prev=num(x.qty_previous),act=num(x.volume_actual),cum=prev+act,factor=num(x.formula_factor)||1,base=po*price*factor,prevTot=x.is_fee_based_quantity?num(x.nilai_previous):prev*price,actTot=act*(x.is_fee_based_quantity?feeInclusiveUnitPrice(x):price),cumTot=prevTot+actTot,rem=x.qty_po==null?null:po-cum,remTot=x.qty_po==null?null:base-cumTot;return `<tr><td>1.${i+1}</td><td class="left"><b>${esc(x.kategori||'')}</b><br>${esc(x.deskripsi_pekerjaan||'')}${x.is_fee_based_quantity?`<br><small>${factor<1?'Estimated Sum · diskon 10%':'At Cost + Fee 15%'}</small>`:''}</td><td>${esc(x.uom||'')}</td><td>${x.qty_po==null?'-':money(po)}</td><td class="right">${money(price)}</td><td class="right">${money(base)}</td><td>${money(prev)}</td><td class="right">${money(prevTot)}</td><td>${money(act)}</td><td class="right">${money(actTot)}</td><td>${money(cum)}</td><td class="right">${money(cumTot)}</td><td>${rem==null?'-':money(rem)}</td><td class="right">${remTot==null?'-':money(remTot)}</td></tr>`}).join('');}
+  function renderPreview(){
+    const pi=state.pi||'-', date=$('tanggalOpname').value, loc=$('lokasiOffice').value||'Luwuk';
+    const provisionalHasBudget=state.items.some(x=>x.is_provisional&&x.po_plafon!=null&&!x.shared_po_item);
+    const totals=documentRows().reduce((a,x)=>{if(x.is_provisional){const base=x.po_plafon==null||x.shared_po_item?null:num(x.po_plafon),prev=num(x.nilai_previous),act=num(x.nilai_actual);a.base+=base||0;a.prev+=prev;a.act+=act;a.cum+=prev+act;a.rem+=base==null?(provisionalHasBudget?-act:0):base-prev-act;return a;}const p=num(x.unit_price),po=x.qty_po==null?0:num(x.qty_po),factor=num(x.formula_factor)||1,prev=num(x.qty_previous),act=num(x.volume_actual),cum=prev+act,prevValue=x.is_fee_based_quantity?num(x.nilai_previous):prev*p,actValue=act*(x.is_fee_based_quantity?feeInclusiveUnitPrice(x):p),base=po*p*factor;a.po+=po;a.base+=base;a.prevV+=prev;a.prev+=prevValue;a.actV+=act;a.act+=actValue;a.cumV+=cum;a.cum+=prevValue+actValue;a.remV+=x.qty_po==null?0:po-cum;a.rem+=x.qty_po==null?0:base-prevValue-actValue;return a},{po:0,base:0,prevV:0,prev:0,actV:0,act:0,cumV:0,cum:0,remV:0,rem:0});
+    const logo1=images.logo1?`<img class="doc-logo" src="${images.logo1}">`:'';const logo2=images.logo2?`<img class="doc-logo" src="${images.logo2}">`:'';const sig1=images.sig1?`<img class="sig-img" src="${images.sig1}">`:'<div class="empty-sig"></div>';const sig2=images.sig2?`<img class="sig-img" src="${images.sig2}">`:'<div class="empty-sig"></div>';const sig3=images.sig3?`<img class="sig-img" src="${images.sig3}">`:'<div class="empty-sig"></div>';
+    const reviewedName=$('reviewedName').value.trim();
+    const signatureHtml=reviewedName
+      ? `<td style="width:33.3%"><br><b>JOB Pertamina - Medco E&P Tomori Sulawesi</b><br>Reviewed by,${sig2}<u><b>${esc(reviewedName)}</b></u><br>${esc($('reviewedTitle').value)}</td><td style="width:33.3%"><br><b>JOB Pertamina - Medco E&P Tomori Sulawesi</b><br>Approved by,${sig3}<u><b>${esc($('approvedName').value)}</b></u><br>${esc($('approvedTitle').value)}</td>`
+      : `<td style="width:50%"><br><b>JOB Pertamina - Medco E&P Tomori Sulawesi</b><br>Approved by,${sig3}<u><b>${esc($('approvedName').value)}</b></u><br>${esc($('approvedTitle').value)}</td>`;
+    $('documentPreview').innerHTML=`<div class="document"><table class="doc-header"><tr><td style="width:22%;text-align:center">${logo1}</td><td style="width:56%;text-align:center"><div class="doc-title">BERITA ACARA PEKERJAAN / OPNAME</div></td><td style="width:22%;text-align:center">${logo2}</td></tr></table>
+      <table class="doc-info"><tr><td style="width:18%;font-weight:bold">JOB TITLE / WO / PO</td><td style="width:2%">:</td><td style="width:80%"><b>${esc($('jobTitle').value||'-')}</b></td></tr><tr><td style="font-weight:bold">CTR / WO / PO No.</td><td>:</td><td>${esc($('ctrWoPo').value||'-')}</td></tr><tr><td style="font-weight:bold">PO DATE</td><td>:</td><td>${esc(fmtDate($('tanggalPO').value)||'-')}</td></tr><tr><td style="font-weight:bold">DATE</td><td>:</td><td>${esc(fmtDate(date))}</td></tr><tr><td style="font-weight:bold;color:#065f46">PROFORMA INVOICE No.</td><td style="color:#065f46">:</td><td><b>${esc(pi)}</b></td></tr></table>
+      <table class="doc-grid"><tr><th rowspan="2">NO</th><th rowspan="2">ITEM - DESCRIPTION</th><th rowspan="2">UOM</th><th colspan="3">BASE ON CTR / PO</th><th colspan="2">PREVIOUS OPNAME (IDR)</th><th colspan="2">AKTUAL OPNAME (BULAN INI) (IDR)</th><th colspan="2">CUMMULATIVE OPNAME (IDR)</th><th colspan="2">SISA ANGGARAN (DEVIASI) (IDR)</th></tr><tr><th>VOLUME</th><th>UNIT PRICE (IDR)</th><th>TOTAL PRICE (IDR)</th><th>VOLUME</th><th>TOTAL PRICE</th><th>VOLUME</th><th>TOTAL PRICE</th><th>VOLUME</th><th>TOTAL PRICE</th><th>VOLUME</th><th>TOTAL PRICE</th></tr>${previewRows()}<tr style="font-weight:bold;background:#fafafa"><td colspan="3" class="right">TOTAL :</td><td>${money(totals.po)}</td><td>-</td><td class="right">${money(totals.base)}</td><td>${money(totals.prevV)}</td><td class="right">${money(totals.prev)}</td><td>${money(totals.actV)}</td><td class="right">${money(totals.act)}</td><td>${money(totals.cumV)}</td><td class="right">${money(totals.cum)}</td><td>${money(totals.remV)}</td><td class="right">${money(totals.rem)}</td></tr></table>
+      <div class="doc-summary">Total Akumulasi Penyerapan (Cumulative Opname): Rp ${money(totals.cum)}<br>Sisa Nilai Anggaran PO (Deviasi): Rp ${money(totals.rem)}</div>
+      <table class="sig-table"><tr><td style="width:${reviewedName?'33.3%':'50%'}">${esc(loc)}, ${esc(fmtDate(date))}<br><b>PT Banggai Sentral Sulawesi</b><br>Prepared by,${sig1}<u><b>${esc($('preparedName').value)}</b></u><br>${esc($('preparedTitle').value)}</td>${signatureHtml}</tr></table></div>`;
+  }
+  async function save(){
+    if(!state.contract||!state.pi){msg('Konteks Kontrak dan PI tidak lengkap.',true);return;}
+    const invalidQty=state.items.some(x=>x.qty_po!==null&&x.qty_po!==''&&x.qty_po!==undefined&&num(x.qty_po)<0);
+    if(invalidQty){msg('Qty PO tidak boleh negatif.',true);return;}
+    try{const j=await getJSON('/opname/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nomor_kontrak:state.contract,nomor_pi:state.pi,nomor_po:state.po,tanggal_opname:$('tanggalOpname').value,lokasi_office:$('lokasiOffice').value,ttd_1:images.sig1,ttd_2:images.sig2,ttd_3:images.sig3,items:state.items.map((x,i)=>({item_key:x.item_key||'',po_item_id:x.id,item_no:x.item_no||i+1,uom:x.uom||'',qty_po:x.qty_po===''||x.qty_po===null?null:num(x.qty_po),unit_price:num(x.unit_price),volume_actual:num(x.volume_actual),nilai_actual:x.is_provisional?num(x.nilai_actual):null}))})});msg(`Opname berhasil disimpan. ${j.count||0} item.`);await loadContext();}catch(e){msg(e.message,true)}
+  }
+  function fileToData(input,key){input.addEventListener('change',()=>{const f=input.files?.[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{images[key]=rd.result;renderPreview()};rd.readAsDataURL(f);});}
+  $('contractSelect').addEventListener('change',loadPI);$('piSelect').addEventListener('change',()=>{state.po='';loadPO();});$('poSelect').addEventListener('change',loadContext);$('usePoBtn').addEventListener('click',usePoNumber);$('poNumberInput').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();usePoNumber();}});$('tanggalOpname').addEventListener('input',()=>{renderPreview();refreshPreviousForDate();});$('lokasiOffice').addEventListener('input',renderPreview);$('jobTitle').addEventListener('input',renderPreview);$('ctrWoPo').addEventListener('input',renderPreview);['preparedName','preparedTitle','approvedName','approvedTitle'].forEach(id=>$(id).addEventListener('input',renderPreview));
+  $('saveBtn').addEventListener('click',save);$('reloadBtn').addEventListener('click',reloadCurrentContext);
+  $('btnBackOpname').addEventListener('click',()=>{
+    if(window.history.length>1){window.history.back();return;}
+    window.location.href='/modul/invoice-dokumen';
+  });
+  $('mappingAction').addEventListener('change',()=>{$('mappingQty').value='';syncMappingFields();});
+  $('mappingScope').addEventListener('change',syncMappingFields);
+  $('mappingSearch').addEventListener('input',filterMappingItems);
+  $('mappingItemSelect').addEventListener('change',()=>{$('mappingQty').value='';syncMappingFields();});
+  $('mappingCancel').addEventListener('click',closeMapping);
+  $('mappingConfirm').addEventListener('click',confirmMapping);
+  fileToData($('logo1'),'logo1');fileToData($('logo2'),'logo2');fileToData($('sig1'),'sig1');fileToData($('sig2'),'sig2');fileToData($('sig3'),'sig3');
+  function buildStandaloneOpnameHtml(){
+    const documentHtml=$('documentPreview').innerHTML.trim();
+
+    if(!documentHtml || !documentHtml.includes('class="document"')){
+      throw new Error('Dokumen Opname belum siap. Pastikan PI sudah dimuat dan rincian pekerjaan sudah tampil.');
+    }
+
+    /*
+     * Satu sumber dokumen:
+     * Preview, Cetak, dan Save to PDF semuanya menggunakan HTML
+     * yang sama dari #documentPreview.
+     *
+     * Struktur standalone ini mengikuti pola file Opname lama:
+     * HTML lengkap + CSS dokumen + browser print.
+     */
+    const printCss=`
+      @page{
+        size:A4 landscape;
+        margin:6mm;
+      }
+
+      html,body{
+        margin:0;
+        padding:0;
+        background:#fff;
+        color:#000;
+      }
+
+      body{
+        font-family:Arial,sans-serif;
+        font-size:9.5px;
+        line-height:1.25;
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+      }
+
+      .document{
+        width:100%;
+        min-height:0;
+        margin:0;
+        padding:0;
+        box-sizing:border-box;
+        background:#fff;
+        color:#000;
+        font-family:Arial,sans-serif;
+        font-size:9.5px;
+        line-height:1.25;
+      }
+
+      .doc-header{
+        width:100%;
+        border-collapse:collapse;
+        border-bottom:2px solid #000;
+        padding-bottom:5px;
+        margin-bottom:6px;
+      }
+
+      .doc-header td{
+        border:none;
+        vertical-align:middle;
+        padding:0 10px;
+      }
+
+      .doc-title{
+        text-align:center;
+        font-weight:bold;
+        font-size:11px;
+        text-transform:uppercase;
+      }
+
+      .doc-logo{
+        max-height:50px;
+        max-width:130px;
+        object-fit:contain;
+        display:block;
+        margin:0 auto;
+      }
+
+      .doc-info{
+        width:100%;
+        border-collapse:collapse;
+        margin-bottom:6px;
+        font-size:9.5px;
+      }
+
+      .doc-info td{
+        padding:2px 4px;
+        border:none;
+      }
+
+      .doc-grid{
+        width:100%;
+        border-collapse:collapse;
+        margin-bottom:6px;
+        table-layout:fixed;
+      }
+
+      .doc-grid th,
+      .doc-grid td{
+        border:1px solid #000;
+        padding:4px 5px;
+        font-size:9px;
+        vertical-align:middle;
+        text-align:center;
+        line-height:1.15;
+        box-sizing:border-box;
+      }
+
+      .doc-grid th{
+        background:#f1f5f9;
+        font-weight:bold;
+        text-transform:uppercase;
+      }
+
+      .doc-grid .left{
+        text-align:left;
+      }
+
+      .doc-grid .right{
+        text-align:right;
+      }
+
+      .doc-summary{
+        margin-top:4px;
+        font-size:10px;
+        font-weight:bold;
+      }
+
+      .sig-table{
+        width:100%;
+        border-collapse:collapse;
+        margin-top:10px;
+        border:none;
+        page-break-inside:avoid;
+        break-inside:avoid;
+        table-layout:fixed;
+      }
+
+      .sig-table td{
+        border:none;
+        vertical-align:top;
+        font-size:9.5px;
+        padding:2px;
+        text-align:center;
+      }
+
+      .sig-img{
+        height:62px;
+        max-width:150px;
+        object-fit:contain;
+        margin:4px auto;
+        display:block;
+      }
+
+      .empty-sig{
+        height:70px;
+      }
+
+      tr{
+        page-break-inside:avoid;
+        break-inside:avoid;
+      }
+
+      @media print{
+        header,footer,.no-print{
+          display:none!important;
+        }
+      }
+    `;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Opname_${esc(state.pi||'document').replaceAll('/','-')}</title>
+<style>${printCss}</style>
+</head>
+<body>${documentHtml}</body>
+</html>`;
+  }
+
+  function openOpnamePrint(){
+    let html;
+
+    try{
+      html=buildStandaloneOpnameHtml();
+    }catch(e){
+      msg(e.message,true);
+      return;
+    }
+
+    const win=window.open('about:blank','_blank');
+
+    if(!win){
+      msg('Popup browser diblokir. Izinkan popup untuk mencetak dokumen Opname.',true);
+      return;
+    }
+
+    /*
+     * Pola ini sengaja mengikuti file Opname lama:
+     * buka standalone HTML yang sudah lengkap, kemudian window.print().
+     *
+     * Tidak ada copy ke #opnamePrintRoot dan tidak ada CSS print
+     * halaman aplikasi yang ikut memengaruhi dokumen.
+     */
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+
+    const doPrint=()=>{
+      setTimeout(()=>{
+        try{
+          win.focus();
+          win.print();
+        }catch(e){
+          try{win.close();}catch(_){}
+          msg('Browser gagal membuka dialog print: '+e.message,true);
+        }
+      },300);
+    };
+
+    if(win.document.readyState==='complete'){
+      doPrint();
+    }else{
+      win.onload=doPrint;
+    }
+  }
+
+  function printDocument(){
+    openOpnamePrint();
+  }
+
+  function printOpnameAsPdf(){
+    openOpnamePrint();
+  }
+
+  $('printBtn').addEventListener('click',printDocument);
+  $('downloadBtn').addEventListener('click',printOpnameAsPdf);
+  // Leave the date empty until a PI is selected. The API then uses that PI's
+  // own date to calculate Previous; defaulting to today here made it calculate
+  // the wrong month before loadContext replaced the field with the PI date.
+  $('tanggalOpname').value='';
+  if(state.fromPiContext){ $('piField').style.display='none'; $('contractSelect').disabled=true; }
+  loadContracts().catch(e=>msg(e.message,true));
+})();
+</script>
+{% endblock %}

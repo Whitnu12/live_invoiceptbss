@@ -1,0 +1,1009 @@
+from decimal import Decimal, InvalidOperation
+from datetime import date, datetime
+from email.utils import parsedate_to_datetime
+import hashlib
+
+from db_connection import get_db_connection
+from modul_po.master_po import (
+    is_provisional_category,
+    reference_key,
+    reference_note,
+    reference_note_similarity,
+)
+
+TABLE = "database_opname"
+
+
+def clean(value):
+    return "" if value is None else str(value).strip()
+
+
+def _iso_date(value):
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    raw = clean(value)
+    if not raw:
+        return ""
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d",
+                "%a, %d %b %Y %H:%M:%S GMT"):
+        try:
+            return datetime.strptime(raw[:19], fmt).date().isoformat()
+        except ValueError:
+            pass
+    try:
+        return parsedate_to_datetime(raw).date().isoformat()
+    except (TypeError, ValueError, OverflowError):
+        pass
+    return ""
+
+
+def dec(value, default=Decimal("0")):
+    try:
+        text = clean(value).replace("Rp", "").replace(" ", "")
+        if "," in text and "." in text and text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        elif text.count(".") > 1 and "," not in text:
+            text = text.replace(".", "")
+        else:
+            text = text.replace(",", "")
+        return Decimal(text or "0")
+    except (InvalidOperation, TypeError, ValueError):
+        return default
+
+
+def row_dict(cursor, row):
+    if isinstance(row, dict):
+        return dict(row)
+    return dict(zip([c[0] for c in cursor.description], row))
+
+
+def ensure_opname_schema():
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {TABLE} (
+                    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    nomor_kontrak VARCHAR(100) NOT NULL,
+                    nomor_pi VARCHAR(100) NOT NULL,
+                    nomor_po VARCHAR(100) NULL,
+                    tanggal_opname DATE NULL,
+                    lokasi_office VARCHAR(255) NULL,
+                    item_key VARCHAR(255) NOT NULL,
+                    po_item_id BIGINT UNSIGNED NULL,
+                    item_no INT NULL,
+                    kategori VARCHAR(255) NULL,
+                    deskripsi_pekerjaan TEXT NULL,
+                    uom VARCHAR(50) NULL,
+                    qty_po DECIMAL(20,6) NULL,
+                    unit_price DECIMAL(20,2) NOT NULL DEFAULT 0,
+                    volume_previous DECIMAL(20,6) NOT NULL DEFAULT 0,
+                    volume_actual DECIMAL(20,6) NOT NULL DEFAULT 0,
+                    volume_cumulative DECIMAL(20,6) NOT NULL DEFAULT 0,
+                    volume_remaining DECIMAL(20,6) NULL,
+                    nilai_previous DECIMAL(20,2) NOT NULL DEFAULT 0,
+                    nilai_actual DECIMAL(20,2) NOT NULL DEFAULT 0,
+                    nilai_cumulative DECIMAL(20,2) NOT NULL DEFAULT 0,
+                    nilai_remaining DECIMAL(20,2) NULL,
+                    mapping_status VARCHAR(30) NOT NULL DEFAULT 'UNMAPPED',
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    UNIQUE KEY uq_opname_item (nomor_kontrak, nomor_pi, nomor_po, item_key),
+                    KEY idx_opname_pi (nomor_kontrak, nomor_pi),
+                    KEY idx_opname_po (nomor_kontrak, nomor_po),
+                    KEY idx_opname_po_item (po_item_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            # Signature assets belong to the saved Opname document. Add them
+            # for installations that already have the older schema.
+            cur.execute("SHOW COLUMNS FROM database_opname")
+            existing_columns = {str(row_dict(cur, row).get('Field', '')).lower() for row in cur.fetchall()}
+            for column in ('ttd_1', 'ttd_2', 'ttd_3'):
+                if column not in existing_columns:
+                    cur.execute(f"ALTER TABLE {TABLE} ADD COLUMN {column} LONGTEXT NULL")
+            conn.commit()
+        finally:
+            cur.close()
+
+
+def _transaction_has_column(cur, column_name):
+    cur.execute("""
+        SELECT COUNT(*) AS n
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'database_transaksi_rincian'
+          AND COLUMN_NAME = %s
+    """, (column_name,))
+    row = cur.fetchone()
+    data = row_dict(cur, row) if row else {}
+    return int(data.get("n") or 0) > 0
+
+
+def list_pi(contract=""):
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        try:
+            contract = clean(contract)
+            if contract:
+                cur.execute("""
+                    SELECT nomor_kontrak, pi_no, MAX(tanggal_pi) AS tanggal_pi
+                    FROM database_transaksi_rincian
+                    WHERE TRIM(CAST(nomor_kontrak AS CHAR))=%s
+                      AND TRIM(COALESCE(pi_no,'')) <> ''
+                    GROUP BY nomor_kontrak, pi_no
+                    ORDER BY MAX(tanggal_pi) DESC, pi_no DESC
+                """, (contract,))
+            else:
+                cur.execute("""
+                    SELECT nomor_kontrak, pi_no, MAX(tanggal_pi) AS tanggal_pi
+                    FROM database_transaksi_rincian
+                    WHERE TRIM(COALESCE(pi_no,'')) <> ''
+                    GROUP BY nomor_kontrak, pi_no
+                    ORDER BY MAX(tanggal_pi) DESC, pi_no DESC
+                """)
+            return [row_dict(cur, r) for r in cur.fetchall()]
+        finally:
+            cur.close()
+
+def list_po(contract, pi_no):
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                SELECT DISTINCT TRIM(nomor_po) AS nomor_po
+                FROM database_transaksi_rincian
+                WHERE TRIM(CAST(nomor_kontrak AS CHAR))=%s
+                  AND TRIM(CAST(pi_no AS CHAR))=%s
+                  AND TRIM(COALESCE(nomor_po,'')) <> ''
+                  AND TRIM(COALESCE(nomor_po,'')) NOT IN ('-','0')
+                ORDER BY nomor_po
+            """, (clean(contract), clean(pi_no)))
+            values = [clean(row_dict(cur, r).get("nomor_po")) for r in cur.fetchall()]
+            # Master PO bersifat tambahan. Schema lama tidak selalu memiliki
+            # kolom nomor_kontrak/status_po, jadi kegagalannya tidak boleh
+            # menghentikan pemuatan rincian PI.
+            try:
+                cur.execute("""
+                    SELECT DISTINCT TRIM(nomor_po) AS nomor_po
+                    FROM database_master_po
+                    WHERE TRIM(CAST(nomor_kontrak AS CHAR))=%s
+                      AND status_po IN ('DRAFT','ACTIVE')
+                      AND deleted_at IS NULL
+                      AND TRIM(COALESCE(nomor_po,'')) NOT IN ('','-','0')
+                    ORDER BY nomor_po
+                """, (clean(contract),))
+                values.extend(clean(row_dict(cur, r).get("nomor_po")) for r in cur.fetchall())
+            except Exception:
+                pass
+            # Urutan penting: PO yang tercatat langsung pada rincian PI
+            # harus menjadi prioritas default. PO dari Master PO hanya
+            # menjadi pilihan tambahan, bukan penentu PO pertama.
+            unique_values = []
+            for value in values:
+                value = clean(value)
+                if value and value not in unique_values:
+                    unique_values.append(value)
+            return unique_values
+        finally:
+            cur.close()
+
+
+def _load_pi_master(cur, contract, pi_no):
+    """Ambil metadata PI tanpa mengunci nama kolom schema master tertentu.
+
+    Database lama menyimpan header PI dengan nama kolom berlabel (misalnya
+    ``Nomor Kontrak`` dan ``PI No.``), sedangkan database baru memakai nama
+    snake_case. Karena itu filter dilakukan setelah SELECT *; cara ini juga
+    menjaga endpoint Opname tetap kompatibel dengan schema yang sudah ada.
+    """
+    try:
+        cur.execute("SELECT * FROM database_proforma_invoice")
+        rows = [row_dict(cur, row) for row in cur.fetchall()]
+    except Exception:
+        # Metadata signer bersifat pelengkap. Kegagalan membaca tabel master
+        # tidak boleh membuat rincian transaksi Opname gagal dimuat.
+        return {}
+
+    def value(data, *names):
+        lowered = {str(k).strip().lower(): v for k, v in data.items()}
+        for name in names:
+            candidate = data.get(name, lowered.get(name.lower(), ""))
+            if clean(candidate):
+                return candidate
+        return ""
+
+    contract = clean(contract)
+    pi_no = clean(pi_no)
+    data = next((row for row in rows if
+                 value(row, "nomor_kontrak", "Nomor Kontrak") == contract and
+                 value(row, "pi_no", "PI No.", "Proforma Invoice No.") == pi_no), {})
+    if not data:
+        return {}
+
+    # Normalisasi nama kolom agar aman terhadap schema lama/baru.
+    aliases = {
+        "job_title": ("job_title", "keterangan_wo", "Keterangan WO", "Deskripsi WO"),
+        "judul_kontrak": ("judul_kontrak", "Judul Kontrak", "nama_kontrak", "Nama Kontrak"),
+        "prepared_by_name": ("prepared_by_name", "Prepared by Name"),
+        "prepared_by_title": ("prepared_by_title", "Prepared by Title"),
+        "reviewed_by_name": ("diwakili_oleh", "Diwakili Oleh"),
+        "reviewed_by_title": ("selaku", "Selaku"),
+        "approved_by_1": ("approved_by_1", "Approved by 1"),
+        "approved_by_title_1": ("approved_by_title_1", "Approved by Title 1"),
+        "approved_by_2": ("approved_by_2", "Approved by 2"),
+        "approved_by_title_2": ("approved_by_title_2", "Approved by Title 2"),
+    }
+    lowered = {str(k).strip().lower(): v for k, v in data.items()}
+    for target, names in aliases.items():
+        if clean(data.get(target)):
+            continue
+        for name in names:
+            value = data.get(name, lowered.get(name.lower(), ""))
+            if clean(value):
+                data[target] = value
+                break
+    return data
+
+
+def _find_master_po(cur, contract, po):
+    if not clean(po) or clean(po) in {"-", "0"}:
+        return None
+    try:
+        cur.execute("""
+            SELECT id, nomor_kontrak, nomor_po, tanggal_po, status_po, total_plafon
+            FROM database_master_po
+            WHERE TRIM(nomor_kontrak)=%s AND TRIM(nomor_po)=%s
+              AND status_po IN ('DRAFT','ACTIVE') AND deleted_at IS NULL
+            ORDER BY version_no DESC, id DESC
+            LIMIT 1
+        """, (clean(contract), clean(po)))
+        row = cur.fetchone()
+        return row_dict(cur, row) if row else None
+    except Exception:
+        # Master PO tidak tersedia/berbeda schema: Opname tetap memakai
+        # rincian transaksi PI sebagai sumber utama seperti endpoint lama.
+        return None
+
+
+def _master_items(cur, po_id):
+    cur.execute("""
+        SELECT id, item_no, kategori, deskripsi_pekerjaan, uom,
+               qty_po, unit_price, total_plafon, keterangan, status_item
+        FROM database_master_po_item
+        WHERE po_id=%s AND status_item='ACTIVE'
+        ORDER BY item_no
+    """, (po_id,))
+    return [row_dict(cur, r) for r in cur.fetchall()]
+
+
+def _make_item_key(index, row):
+    raw = "|".join([
+        str(index), clean(row.get("deskripsi_pekerjaan")), clean(row.get("kategori")),
+        clean(row.get("unit")), clean(row.get("qty")), clean(row.get("harga_satuan")),
+        clean(row.get("nomor_po")), clean(row.get("keterangan")),
+    ])
+    return "pi-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def _pi_items(cur, contract, pi_no, po=""):
+    """Ambil rincian transaksi PI sebagai sumber utama Opname.
+
+    Prioritas pencarian:
+    1. Kontrak + PI pada kolom utama.
+    2. Kontrak + PI pada kolom utama/*_2.
+    3. Fallback PI-only jika database hasil import menyimpan kontrak pada
+       representasi berbeda. Fallback hanya diterima jika PI tersebut unik
+       pada satu kontrak, sehingga tidak berisiko mengambil PI milik kontrak lain.
+
+    PO tidak pernah menjadi filter sumber rincian. PO hanya dipakai untuk
+    mapping ke Master PO dan histori realisasi.
+    """
+    contract = clean(contract)
+    pi_no = clean(pi_no)
+    if not contract or not pi_no:
+        return []
+
+    has_po_item_id = _transaction_has_column(cur, "po_item_id")
+    has_contract_2 = _transaction_has_column(cur, "nomor_kontrak_2")
+    has_pi_2 = _transaction_has_column(cur, "pi_no_2")
+    has_deskripsi_po = _transaction_has_column(cur, "deskripsi_po")
+    has_nama_kontrak = _transaction_has_column(cur, "nama_kontrak")
+    has_tanggal_selesai = _transaction_has_column(cur, "tanggal_selesai")
+    po_item_expr = "po_item_id" if has_po_item_id else "NULL"
+    contract_2_expr = "nomor_kontrak_2" if has_contract_2 else "NULL"
+    pi_2_expr = "pi_no_2" if has_pi_2 else "NULL"
+    deskripsi_po_expr = "deskripsi_po" if has_deskripsi_po else "NULL"
+    nama_kontrak_expr = "nama_kontrak" if has_nama_kontrak else "NULL"
+    tanggal_selesai_expr = "tanggal_selesai" if has_tanggal_selesai else "NULL"
+
+    columns = f"""
+        nomor_kontrak, pi_no,
+        {contract_2_expr} AS nomor_kontrak_2,
+        {pi_2_expr} AS pi_no_2,
+        nomor_po, {po_item_expr} AS po_item_id, tanggal_pi,
+        {tanggal_selesai_expr} AS tanggal_selesai,
+        {deskripsi_po_expr} AS deskripsi_po,
+        {nama_kontrak_expr} AS nama_kontrak,
+        kategori, deskripsi_pekerjaan, keterangan,
+        unit, qty, harga_satuan, total_harga
+    """
+
+    # Query normal: ini adalah sumber yang sama dengan Modul 2.
+    contract_conditions = ["TRIM(CAST(nomor_kontrak AS CHAR))=%s"]
+    pi_conditions = ["TRIM(CAST(pi_no AS CHAR))=%s"]
+    if has_contract_2:
+        contract_conditions.append("TRIM(CAST(nomor_kontrak_2 AS CHAR))=%s")
+    if has_pi_2:
+        pi_conditions.append("TRIM(CAST(pi_no_2 AS CHAR))=%s")
+    sql = f"""
+        SELECT {columns}
+        FROM database_transaksi_rincian
+        WHERE ({' OR '.join(contract_conditions)})
+          AND ({' OR '.join(pi_conditions)})
+        ORDER BY kategori ASC, deskripsi_pekerjaan ASC
+    """
+    params = [contract] * len(contract_conditions) + [pi_no] * len(pi_conditions)
+    cur.execute(sql, tuple(params))
+    raw_rows = cur.fetchall()
+    source_mode = "CONTRACT_PI"
+
+    # Fallback untuk database/import lama: normalisasi whitespace dan cari PI
+    # tanpa bergantung pada representasi kontrak di kolom utama/_2.
+    if not raw_rows:
+        normalized_pi = "".join(pi_no.split())
+        fallback_conditions = [
+            "REPLACE(REPLACE(TRIM(CAST(pi_no AS CHAR)), ' ', ''), CHAR(160), '')=%s"
+        ]
+        if has_pi_2:
+            fallback_conditions.append(
+                "REPLACE(REPLACE(TRIM(CAST(pi_no_2 AS CHAR)), ' ', ''), CHAR(160), '')=%s"
+            )
+        sql_fallback = f"""
+            SELECT {columns}
+            FROM database_transaksi_rincian
+            WHERE ({' OR '.join(fallback_conditions)})
+            ORDER BY kategori ASC, deskripsi_pekerjaan ASC
+        """
+        cur.execute(sql_fallback, tuple([normalized_pi] * len(fallback_conditions)))
+        candidate_rows = cur.fetchall()
+
+        # Hanya gunakan fallback jika PI tersebut unik pada satu kontrak.
+        contracts = set()
+        for raw in candidate_rows:
+            rr = row_dict(cur, raw)
+            c = clean(rr.get("nomor_kontrak")) or clean(rr.get("nomor_kontrak_2"))
+            if c:
+                contracts.add(c)
+
+        if {"".join(value.split()) for value in contracts} == {"".join(contract.split())}:
+            raw_rows = candidate_rows
+            source_mode = "PI_ONLY_UNIQUE"
+        else:
+            raw_rows = []
+
+    rows = []
+    for index, raw in enumerate(raw_rows, 1):
+        r = row_dict(cur, raw)
+        rows.append({
+            "id": None,
+            "item_no": index,
+            "item_key": _make_item_key(index, r),
+            "nomor_po": clean(r.get("nomor_po")),
+            "pi_po_item_id": r.get("po_item_id"),
+            "kategori": clean(r.get("kategori")),
+            "deskripsi_pekerjaan": clean(r.get("deskripsi_pekerjaan")),
+            "keterangan": clean(r.get("keterangan")),
+            "uom": clean(r.get("unit")),
+            "qty_pi": dec(r.get("qty")),
+            "qty_po": None,
+            "unit_price": dec(r.get("harga_satuan")),
+            "nilai_pi": dec(r.get("total_harga")),
+            "total_plafon": None,
+            "status_item": "PI_DETAIL",
+            "mapping_status": "UNMAPPED",
+            "source_mode": source_mode,
+        })
+    return rows
+
+def _valid_master_item(cur, item_id, contract, po):
+    if not item_id or not clean(po) or clean(po) in {"-", "0"}:
+        return None
+    cur.execute("""
+        SELECT i.id, i.item_no, i.kategori, i.deskripsi_pekerjaan, i.uom,
+               i.qty_po, i.unit_price, i.total_plafon, i.status_item
+        FROM database_master_po h
+        JOIN database_master_po_item i ON i.po_id=h.id
+        WHERE i.id=%s
+          AND TRIM(h.nomor_kontrak)=%s
+          AND TRIM(h.nomor_po)=%s
+          AND i.status_item='ACTIVE'
+        LIMIT 1
+    """, (item_id, clean(contract), clean(po)))
+    row = cur.fetchone()
+    return row_dict(cur, row) if row else None
+
+
+def _auto_map_pi_row(cur, pi_item, contract, po, master_items):
+    """Map a PI detail to the corresponding Master PO Item when possible.
+
+    Priority:
+    1. authoritative po_item_id stored on the PI detail;
+    2. unique match on category + description + UOM.
+
+    Price is deliberately not part of the identity.  A PI price can differ
+    from the PO price while still referring to the same work item.  For
+    Provisional Sum, the transaction description/keterangan distinguishes
+    separate PS lines that share the same category.
+    """
+    if not master_items:
+        return pi_item
+
+    def norm(value):
+        return " ".join(clean(value).lower().split())
+
+    def item_key(item):
+        return reference_key(item.get("kategori"), item.get("deskripsi_pekerjaan"), item.get("uom"))
+
+    def same_reference_line(item):
+        key = item_key(item)
+        if key == source_key:
+            return True
+        # Some legacy PO items have no category.  Their description and UOM
+        # still identify the reference line unambiguously.
+        return (not clean(item.get("kategori"))
+                and key[1:] == source_key[1:])
+
+    def same_category(left, right):
+        if is_provisional_category(left) or is_provisional_category(right):
+            return is_provisional_category(left) and is_provisional_category(right)
+        return item_key({"kategori": left, "deskripsi_pekerjaan": "", "uom": ""})[0] == \
+            item_key({"kategori": right, "deskripsi_pekerjaan": "", "uom": ""})[0]
+
+    def apply_match(valid):
+        pi_item.update({
+            "id": valid.get("id"),
+            "item_no_master": valid.get("item_no"),
+            "mapping_status": "MAPPED",
+            "master_keterangan": clean(valid.get("keterangan")),
+            "qty_po": dec(valid.get("qty_po")),
+            "po_plafon": dec(valid.get("total_plafon")),
+        })
+        # PS realization is an actual-cost amount. Keep the PI cost for its
+        # display/calculation while taking the PO ceiling from po_plafon.
+        if not is_provisional_category(pi_item.get("kategori")):
+            pi_item["unit_price"] = dec(valid.get("unit_price"), pi_item.get("unit_price", Decimal("0")))
+        return pi_item
+
+    raw_id = pi_item.get("pi_po_item_id")
+    direct_uom_mismatch = False
+    direct_po_uom = ""
+    if raw_id:
+        valid = next((x for x in master_items if str(x.get("id")) == str(raw_id)), None)
+        if valid and (not clean(valid.get("kategori")) or same_category(valid.get("kategori"), pi_item.get("kategori"))):
+            # An explicit foreign key is authoritative only while its UOM is
+            # compatible. Legacy/imported links can point two distinct PI
+            # lines (for example day/night shifts) at one PO item even when
+            # their units differ. Treat that link as unresolved so the UI and
+            # document preview cannot silently combine unlike quantities.
+            if (is_provisional_category(pi_item.get("kategori"))
+                    or reference_key("", "", valid.get("uom"))[2]
+                    == reference_key("", "", pi_item.get("uom"))[2]):
+                return apply_match(valid)
+            direct_uom_mismatch = True
+            direct_po_uom = clean(valid.get("uom"))
+
+    category = pi_item.get("kategori")
+    source_key = item_key(pi_item)
+    candidates = [
+        x for x in master_items
+        if same_reference_line(x)
+    ]
+
+    # The Master Referensi is the canonical naming layer.  If a PI/PO upload
+    # differs only by aliases such as Month/Bulan, Day/Days, or a trailing
+    # "man-days", match through the canonical reference key before asking for
+    # manual PO-item selection.  We intentionally require one resulting item.
+    if not candidates and not is_provisional_category(category):
+        cur.execute("""
+            SELECT kategori, uraian_pekerjaan, unit
+            FROM database_master_referensi
+            WHERE TRIM(CAST(nomor_kontrak AS CHAR))=%s
+              AND uraian_pekerjaan IS NOT NULL
+              AND TRIM(uraian_pekerjaan)<>''
+        """, (clean(contract),))
+        reference_keys = {
+            reference_key(row.get("kategori"), row.get("uraian_pekerjaan"), row.get("unit"))
+            for raw in cur.fetchall()
+            for row in [raw if isinstance(raw, dict) else {
+                "kategori": raw[0], "uraian_pekerjaan": raw[1], "unit": raw[2]
+            }]
+        }
+        if source_key in reference_keys:
+            candidates = [x for x in master_items if same_reference_line(x)]
+
+    # Provisional Sum is a category-level reference by design.  Its PI text
+    # and UOM describe the actual cost, not a distinct master line.
+    if not candidates and is_provisional_category(category):
+        candidates = [x for x in master_items if is_provisional_category(x.get("kategori"))]
+
+    if is_provisional_category(category) and len(candidates) > 1:
+        # PS lines may share category/description/UOM.  Their keterangan is
+        # the final discriminator when it is available on both sides.
+        note = reference_note(pi_item.get("keterangan"))
+        if note:
+            noted = [x for x in candidates if reference_note(x.get("keterangan")) == note]
+            if len(noted) == 1:
+                candidates = noted
+            else:
+                ranked = sorted(
+                    ((reference_note_similarity(note, x.get("keterangan")), x) for x in candidates),
+                    key=lambda pair: pair[0], reverse=True,
+                )
+                if ranked and ranked[0][0] >= 0.72 and (
+                    len(ranked) == 1 or ranked[0][0] - ranked[1][0] >= 0.10
+                ):
+                    candidates = [ranked[0][1]]
+
+    if len(candidates) == 1:
+        return apply_match(candidates[0])
+    if direct_uom_mismatch:
+        pi_item["mapping_issue"] = (
+            f"UOM PI ({clean(pi_item.get('uom')) or '-'}) berbeda dari "
+            f"UOM item PO ({direct_po_uom or '-'}); mapping otomatis dibatalkan."
+        )
+    return pi_item
+
+
+def _previous_for_item(cur, contract, po, pi_no, item, amount=False, before_date=None):
+    if not clean(po) or clean(po) in {"-", "0"}:
+        return Decimal("0")
+
+    cutoff_date = _iso_date(before_date)
+    if not cutoff_date:
+        return Decimal("0")
+
+    # Previous is the accumulated consumption from all earlier PI periods.
+    # The cutoff is the selected PI month, not the contract-wide end date.
+    current_month_start = date.fromisoformat(cutoff_date).replace(day=1)
+    metric = "total_harga" if amount else "qty"
+    has_pi_date = _transaction_has_column(cur, "tanggal_pi")
+    has_pi_po_item_id = _transaction_has_column(cur, "po_item_id")
+    has_contract_2 = _transaction_has_column(cur, "nomor_kontrak_2")
+    has_pi_2 = _transaction_has_column(cur, "pi_no_2")
+    has_completion_date = _transaction_has_column(cur, "tanggal_selesai")
+    completion_date_expr = "tanggal_selesai" if has_completion_date else "NULL"
+    pi_date_expr = "tanggal_pi" if has_pi_date else "NULL"
+    source_pi_no_expr = (
+        "COALESCE(NULLIF(TRIM(CAST(pi_no AS CHAR)),''), "
+        "NULLIF(TRIM(CAST(pi_no_2 AS CHAR)),''))"
+        if has_pi_2 else "TRIM(CAST(pi_no AS CHAR))"
+    )
+    # Use the PI PO-item ID as the stable identity for matching prior usage.
+    # Category and UOM are only a fallback when the PI row has no item ID.
+    source_item_id = item.get("pi_po_item_id") or item.get("id")
+    if has_pi_po_item_id and source_item_id:
+        item_clause = " AND po_item_id=%s "
+        item_params = (source_item_id,)
+    else:
+        item_clause = """
+            AND LOWER(TRIM(COALESCE(kategori,'')))=LOWER(TRIM(COALESCE(%s,'')))
+            AND LOWER(TRIM(COALESCE(unit,'')))=LOWER(TRIM(COALESCE(%s,'')))
+        """
+        item_params = (clean(item.get("kategori")), clean(item.get("uom")))
+    contract_conditions = ["TRIM(CAST(nomor_kontrak AS CHAR))=%s"]
+    if has_contract_2:
+        contract_conditions.append("TRIM(CAST(nomor_kontrak_2 AS CHAR))=%s")
+
+    # The PI detail loader accepts both the primary PI columns and the legacy
+    # *_2 columns. Apply the same contract lookup here so older/imported rows
+    # (such as PI 001) are not omitted from Previous.
+    pi_exclusions = ["COALESCE(TRIM(CAST(pi_no AS CHAR)),'')<>%s"]
+    if has_pi_2:
+        pi_exclusions.append("COALESCE(TRIM(CAST(pi_no_2 AS CHAR)),'')<>%s")
+    query_params = [clean(contract)] * len(contract_conditions)
+    query_params.append(clean(po))
+    query_params.extend([clean(pi_no)] * len(pi_exclusions))
+    query_params.extend(item_params)
+
+    history_query = f"""
+        SELECT COALESCE({metric},0) AS qty,
+               {source_pi_no_expr} AS source_pi_no,
+               {pi_date_expr} AS source_pi_date,
+               {completion_date_expr} AS source_completion_date
+        FROM database_transaksi_rincian
+        WHERE ({' OR '.join(contract_conditions)})
+          AND TRIM(CAST(nomor_po AS CHAR))=%s
+          AND {' AND '.join(pi_exclusions)}
+          {item_clause}
+    """
+    cur.execute(history_query, tuple(query_params))
+    total = Decimal("0")
+    pi_header_date_cache = {}
+    def period_date(row):
+        # Honor each transaction's completion date when it belongs to that PI's
+        # own reporting period. Imported rows sometimes carry the contract-wide
+        # end date (for example Oct 2026 on the Oct 2025 PI); do not shift that
+        # monthly consumption into a future period.
+        prior_pi_no = clean(row.get("source_pi_no"))
+        pi_period_date = ""
+        pi_invoice_date = _iso_date(row.get("source_pi_date"))
+        if prior_pi_no:
+            if prior_pi_no not in pi_header_date_cache:
+                prior_pi = _load_pi_master(cur, contract, prior_pi_no)
+                pi_header_date_cache[prior_pi_no] = (
+                    _iso_date(prior_pi.get("periode_pekerjaan_selesai")
+                              or prior_pi.get("Periode Pekerjaan Selesai")),
+                    _iso_date(prior_pi.get("tanggal_performa_invoice_new")
+                              or prior_pi.get("Tanggal Performa Invoice New")
+                              or prior_pi.get("tanggal_pi")
+                              or prior_pi.get("Tanggal PI")),
+                )
+            pi_period_date, pi_header_invoice_date = pi_header_date_cache[prior_pi_no]
+            pi_invoice_date = pi_invoice_date or pi_header_invoice_date
+
+        source_completion_date = _iso_date(row.get("source_completion_date"))
+        if source_completion_date:
+            reference_date = pi_period_date or pi_invoice_date
+            if reference_date and source_completion_date[:7] != reference_date[:7]:
+                return pi_period_date or pi_invoice_date
+            return source_completion_date
+        return pi_period_date or pi_invoice_date
+
+    transaction_rows = cur.fetchall()
+    transaction_totals = {}
+    transaction_without_pi = Decimal("0")
+    for raw in transaction_rows:
+        row = row_dict(cur, raw)
+        prior_pi_no = "".join(clean(row.get("source_pi_no")).split())
+        source_date = period_date(row)
+        if source_date and source_date < current_month_start.isoformat():
+            qty = dec(row.get("qty"))
+            if prior_pi_no:
+                transaction_totals[prior_pi_no] = transaction_totals.get(prior_pi_no, Decimal("0")) + qty
+            else:
+                transaction_without_pi += qty
+
+    # Master PO keeps a normalized PI history keyed by the mapped PO item.
+    # Supplement partial transaction history with PO realization rows, while
+    # skipping PIs already represented in transaction detail to avoid doubles.
+    history_metric = "nilai_realisasi" if amount else "qty_realisasi"
+    if source_item_id:
+        history_item_clause = " AND r.po_item_id=%s "
+        history_item_params = (source_item_id,)
+    else:
+        history_item_clause = """
+          AND LOWER(TRIM(COALESCE(r.kategori,'')))=LOWER(TRIM(COALESCE(%s,'')))
+          AND LOWER(TRIM(COALESCE(r.uom,'')))=LOWER(TRIM(COALESCE(%s,'')))
+        """
+        history_item_params = (clean(item.get("kategori")), clean(item.get("uom")))
+    if has_completion_date:
+        history_pi_match = (
+            "(TRIM(CAST(t.pi_no AS CHAR))=TRIM(CAST(r.nomor_pi AS CHAR)) "
+            "OR TRIM(CAST(t.pi_no_2 AS CHAR))=TRIM(CAST(r.nomor_pi AS CHAR)))"
+            if has_pi_2 else
+            "TRIM(CAST(t.pi_no AS CHAR))=TRIM(CAST(r.nomor_pi AS CHAR))"
+        )
+        history_completion_expr = """
+            (SELECT MAX(t.tanggal_selesai)
+             FROM database_transaksi_rincian t
+             WHERE TRIM(CAST(t.nomor_kontrak AS CHAR))=TRIM(CAST(r.nomor_kontrak AS CHAR))
+               AND TRIM(CAST(t.nomor_po AS CHAR))=TRIM(CAST(r.nomor_po AS CHAR))
+               AND {history_pi_match}
+               AND LOWER(TRIM(COALESCE(t.kategori,'')))=LOWER(TRIM(COALESCE(r.kategori,'')))
+               AND LOWER(TRIM(COALESCE(t.unit,'')))=LOWER(TRIM(COALESCE(r.uom,''))))
+        """.format(history_pi_match=history_pi_match)
+    else:
+        history_completion_expr = "NULL"
+    cur.execute("""
+        SELECT COALESCE(r.{history_metric},0) AS qty,
+               r.nomor_pi AS source_pi_no,
+               r.tanggal_pi AS source_pi_date,
+               {history_completion_expr} AS source_completion_date
+        FROM database_po_realisasi r
+        WHERE TRIM(CAST(r.nomor_kontrak AS CHAR))=%s
+          AND TRIM(CAST(r.nomor_po AS CHAR))=%s
+          {history_item_clause}
+          AND TRIM(CAST(r.nomor_pi AS CHAR))<>%s
+    """.format(history_metric=history_metric, history_item_clause=history_item_clause,
+               history_completion_expr=history_completion_expr),
+               (clean(contract), clean(po), *history_item_params, clean(pi_no)))
+    ledger_totals = {}
+    ledger_pi_keys = set()
+    for raw in cur.fetchall():
+        row = row_dict(cur, raw)
+        prior_pi_no = "".join(clean(row.get("source_pi_no")).split())
+        source_date = period_date(row)
+        if not source_date:
+            continue
+        # The PO realization ledger is the canonical history for a mapped PO
+        # item. Prefer it per PI instead of skipping it merely because a raw
+        # transaction row exists: legacy/imported rows can be present in the
+        # transaction table but fail period/item matching, which silently
+        # drops that PI from the cumulative Previous total.
+        if prior_pi_no:
+            ledger_pi_keys.add(prior_pi_no)
+            if source_date < current_month_start.isoformat():
+                ledger_totals[prior_pi_no] = ledger_totals.get(prior_pi_no, Decimal("0")) + dec(row.get("qty"))
+        elif source_date < current_month_start.isoformat():
+            transaction_without_pi += dec(row.get("qty"))
+    total += transaction_without_pi
+    total += sum(ledger_totals.values(), Decimal("0"))
+    total += sum((qty for pi_no, qty in transaction_totals.items() if pi_no not in ledger_pi_keys), Decimal("0"))
+    return total
+
+
+def get_opname_context(contract, pi_no, po, opname_date=None):
+    ensure_opname_schema()
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        try:
+            contract, pi_no, po = clean(contract), clean(pi_no), clean(po)
+            master_pi = _load_pi_master(cur, contract, pi_no)
+
+            # IMPORTANT: the PI transaction detail is the row source.
+            # Master PO only enriches/mapping those PI rows; it never replaces them.
+            items = _pi_items(cur, contract, pi_no, po)
+            # A PI detail can already carry its PO even when the page/API was
+            # opened without nomor_po. Resolve a single unambiguous PO from
+            # those transaction rows before attempting mapping or Previous.
+            # Without this, the row's own PO is incorrectly marked as a
+            # mismatch against the empty request parameter and history is zeroed.
+            item_pos = {
+                clean(item.get("nomor_po"))
+                for item in items
+                if clean(item.get("nomor_po")) not in {"", "-", "0"}
+            }
+            if len(item_pos) == 1:
+                po = next(iter(item_pos))
+            master = _find_master_po(cur, contract, po)
+            pi_date = next((_iso_date(item.get("tanggal_pi")) for item in items
+                            if _iso_date(item.get("tanggal_pi"))), "")
+            completion_date = next((_iso_date(item.get("tanggal_selesai")) for item in items
+                                    if _iso_date(item.get("tanggal_selesai"))), "")
+            # The PI header contains the monthly work-period dates even when
+            # legacy transaction-detail rows do not have tanggal_pi or carry
+            # the contract-wide tanggal_selesai instead.
+            master_pi_date = _iso_date(
+                master_pi.get("tanggal_performa_invoice_new")
+                or master_pi.get("Tanggal Performa Invoice New")
+                or master_pi.get("tanggal_pi")
+                or master_pi.get("Tanggal PI")
+            )
+            master_period_end = _iso_date(
+                master_pi.get("periode_pekerjaan_selesai")
+                or master_pi.get("Periode Pekerjaan Selesai")
+            )
+            pi_date = pi_date or master_pi_date
+            if master_period_end and (
+                not pi_date or master_period_end[:7] == pi_date[:7]
+            ):
+                completion_date = master_period_end
+            elif pi_date and completion_date and completion_date[:7] != pi_date[:7]:
+                # A PI header can contain the contract-wide end date. Keep
+                # the PI's own month as the Opname cutoff when those months
+                # differ, so November 2025 does not search October 2026.
+                completion_date = pi_date
+            elif pi_date and not completion_date:
+                completion_date = pi_date
+            first_pi_item = items[0] if items else {}
+            job_title = (clean(master_pi.get("job_title"))
+                         or clean(first_pi_item.get("deskripsi_po"))
+                         or clean(master_pi.get("judul_kontrak"))
+                         or clean(first_pi_item.get("nama_kontrak")))
+            cur.execute("""
+                SELECT tanggal_opname FROM database_opname
+                WHERE nomor_kontrak=%s AND nomor_pi=%s
+                  AND COALESCE(nomor_po,'')=%s
+                ORDER BY id DESC LIMIT 1
+            """, (contract, pi_no, po))
+            saved_date_row = cur.fetchone()
+            saved_date = clean(row_dict(cur, saved_date_row).get("tanggal_opname")) if saved_date_row else ""
+            master_items = _master_items(cur, master["id"]) if master else []
+            for item in items:
+                item["is_provisional"] = is_provisional_category(item.get("kategori"))
+                item_po = clean(item.get("nomor_po"))
+                item["po_mismatch"] = bool(item_po and item_po not in {"-", "0"} and item_po != po)
+                if master and not item["po_mismatch"]:
+                    _auto_map_pi_row(cur, item, contract, po, master_items)
+            provisional_rows = [x for x in items if x["is_provisional"] and not x["po_mismatch"]]
+            provisional_anchor = next((x for x in provisional_rows if x.get("id") is not None),
+                                      provisional_rows[0] if provisional_rows else None)
+            seen_master_ids = set()
+            for item in items:
+                item_completion = _iso_date(item.get("tanggal_selesai"))
+                if item_completion and pi_date and item_completion[:7] != pi_date[:7]:
+                    item_completion = ""
+                item_previous_cutoff = (opname_date
+                                         or item_completion
+                                         or completion_date
+                                         or pi_date or saved_date or None)
+                po_mismatch = item["po_mismatch"]
+                shared_item = ((item["is_provisional"] and item is not provisional_anchor and not po_mismatch)
+                               or (item.get("id") is not None and item["id"] in seen_master_ids))
+                previous = (Decimal("0") if shared_item or po_mismatch or item["is_provisional"]
+                            else _previous_for_item(cur, contract, po, pi_no, item,
+                                                    before_date=item_previous_cutoff))
+                item["qty_previous"] = previous
+                item["nilai_previous"] = (_previous_for_item(cur, contract, po, pi_no, item, amount=True,
+                                                             before_date=item_previous_cutoff)
+                                           if item["is_provisional"] and not shared_item and not po_mismatch else Decimal("0"))
+                item["shared_po_item"] = shared_item
+                if shared_item:
+                    item["qty_po"] = None
+                elif item.get("id") is not None:
+                    seen_master_ids.add(item["id"])
+
+            cur.execute("""
+                SELECT id, item_key, po_item_id, item_no, nomor_po,
+                       tanggal_opname, lokasi_office, qty_po, unit_price,
+                       volume_previous, volume_actual, volume_cumulative,
+                       volume_remaining, nilai_actual, nilai_previous, mapping_status
+                       , ttd_1, ttd_2, ttd_3
+                FROM database_opname
+                WHERE nomor_kontrak=%s AND nomor_pi=%s
+                  AND COALESCE(nomor_po,'')=%s
+                ORDER BY id DESC
+            """, (contract, pi_no, po))
+            saved_rows = [row_dict(cur, row) for row in cur.fetchall()]
+            saved = saved_rows[0] if saved_rows else {}
+
+            for item in items:
+                item["saved"] = None
+                saved_item = next((s for s in saved_rows if clean(item.get("item_key"))
+                                   and clean(item.get("item_key")) == clean(s.get("item_key"))), None)
+                saved_key_match = saved_item is not None
+                if saved_item is None:
+                    saved_item = next((s for s in saved_rows if item.get("item_no") is not None
+                                       and str(item.get("item_no")) == str(s.get("item_no"))), None)
+                if saved_item is None and item.get("id") is not None:
+                    same_id = [s for s in saved_rows if s.get("po_item_id") is not None
+                               and str(item["id"]) == str(s.get("po_item_id"))]
+                    if len(same_id) == 1:
+                        saved_item = same_id[0]
+                if saved_item is not None:
+                    item["saved"] = {
+                        "item_key_match": saved_key_match,
+                        "qty_po": saved_item.get("qty_po"),
+                        "unit_price": saved_item.get("unit_price"),
+                        "volume_previous": saved_item.get("volume_previous"),
+                        "volume_actual": saved_item.get("volume_actual"),
+                        "nilai_actual": saved_item.get("nilai_actual"),
+                        "tanggal_opname": saved_item.get("tanggal_opname"),
+                    }
+
+                if item["saved"] is not None:
+                    if item.get("mapping_status") != "MAPPED" and item["saved"].get("qty_po") is not None:
+                        item["qty_po"] = item["saved"]["qty_po"]
+                    item["volume_actual"] = item["saved"].get("volume_actual") or Decimal("0")
+                    if item["is_provisional"]:
+                        item["nilai_actual"] = item["saved"].get("nilai_actual") or Decimal("0")
+
+            return {
+                "success": True,
+                "master_po": master,
+                "master_pi": master_pi,
+                "nomor_po": po,
+                "document": {
+                    "job_title": job_title,
+                    "ctr_wo_po": " / ".join(value for value in (contract, po) if value),
+                },
+                "mapping_status": "MAPPED" if any(x.get("mapping_status") == "MAPPED" for x in items) else "UNMAPPED",
+                "items": items,
+                "saved": saved,
+                "saved_exists": bool(saved_rows),
+                "tanggal_pi": pi_date,
+                "tanggal_selesai": completion_date,
+                "pi_source": True,
+                "po_selected": bool(po),
+            }
+        finally:
+            cur.close()
+
+
+def save_opname(payload):
+    ensure_opname_schema()
+    contract = clean(payload.get("nomor_kontrak"))
+    pi_no = clean(payload.get("nomor_pi"))
+    po = clean(payload.get("nomor_po"))
+    location = clean(payload.get("lokasi_office"))
+    opname_date = clean(payload.get("tanggal_opname")) or date.today().isoformat()
+    rows = payload.get("items") or []
+
+    if not contract or not pi_no:
+        raise ValueError("Nomor kontrak dan PI wajib diisi.")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("Minimal satu item rincian PI wajib ada.")
+
+    context = get_opname_context(contract, pi_no, po, opname_date)
+    by_key = {clean(x.get("item_key")): x for x in context["items"] if clean(x.get("item_key"))}
+    prepared = []
+    for index, raw in enumerate(rows, 1):
+        if not isinstance(raw, dict):
+            continue
+        item = by_key.get(clean(raw.get("item_key")))
+        if not item:
+            item = next((x for x in context["items"] if int(x.get("item_no") or 0) == int(raw.get("item_no") or index)), None)
+        if not item:
+            raise ValueError(f"Rincian PI ke-{index} tidak ditemukan. Muat ulang halaman sebelum menyimpan.")
+        prepared.append((index, raw, item))
+    provisional_actual_total = sum(
+        (dec(raw.get("nilai_actual")) for _, raw, item in prepared
+         if item.get("is_provisional") and not item.get("po_mismatch")),
+        Decimal("0"),
+    )
+
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "DELETE FROM database_opname WHERE nomor_kontrak=%s AND nomor_pi=%s AND COALESCE(nomor_po,'')=%s",
+                (contract, pi_no, po)
+            )
+
+            saved_count = 0
+            for index, raw, item in prepared:
+
+                raw_qty_po = raw.get("qty_po")
+                qty_po = None if raw_qty_po is None or clean(raw_qty_po) == "" else dec(raw_qty_po)
+                if item.get("mapping_status") == "MAPPED":
+                    qty_po = None if item.get("shared_po_item") else dec(item.get("qty_po"))
+                if qty_po is not None and qty_po < 0:
+                    raise ValueError(f"Qty PO tidak boleh negatif untuk item ke-{index}.")
+
+                price = dec(item.get("unit_price")) if item.get("mapping_status") == "MAPPED" else dec(raw.get("unit_price"), dec(item.get("unit_price")))
+                if item.get("is_provisional"):
+                    previous = actual = cumulative = Decimal("0")
+                    remaining = None
+                    nilai_previous = dec(item.get("nilai_previous"))
+                    nilai_actual = dec(raw.get("nilai_actual"))
+                    if nilai_actual < 0 or not nilai_actual.is_finite():
+                        raise ValueError(f"Nilai aktual Provisional Sum item ke-{index} tidak valid.")
+                    nilai_cumulative = nilai_previous + nilai_actual
+                    plafon = item.get("po_plafon")
+                    nilai_remaining = (dec(plafon) - nilai_previous - provisional_actual_total
+                                       if plafon is not None and not item.get("shared_po_item") else None)
+                else:
+                    previous = dec(raw.get("volume_previous"), dec(item.get("qty_previous")))
+                    # Rincian transaksi PI adalah nilai awal aktual. Nilai
+                    # yang dikirim UI tetap boleh mengoreksi aktual tersebut.
+                    actual_raw = raw.get("volume_actual")
+                    actual = (dec(item.get("qty_pi"))
+                              if actual_raw is None or clean(actual_raw) == ""
+                              else dec(actual_raw))
+                    cumulative = previous + actual
+                    remaining = qty_po - cumulative if qty_po is not None else None
+                    nilai_previous = previous * price
+                    nilai_actual = actual * price
+                    nilai_cumulative = cumulative * price
+                    nilai_remaining = remaining * price if remaining is not None else None
+                status = "MAPPED" if item.get("id") else "UNMAPPED"
+                item_key = clean(item.get("item_key")) or f"fallback-{index}"
+
+                cur.execute(f"""
+                    INSERT INTO {TABLE}
+                    (nomor_kontrak, nomor_pi, nomor_po, tanggal_opname, lokasi_office,
+                     item_key, po_item_id, item_no, kategori, deskripsi_pekerjaan, uom,
+                     qty_po, unit_price, volume_previous, volume_actual, volume_cumulative,
+                     volume_remaining, nilai_previous, nilai_actual, nilai_cumulative,
+                     nilai_remaining, mapping_status, ttd_1, ttd_2, ttd_3)
+                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (
+                    contract, pi_no, po or None, opname_date, location,
+                    item_key, item.get("id"), item.get("item_no"), clean(item.get("kategori")),
+                    clean(item.get("deskripsi_pekerjaan")), clean(raw.get("uom")) or clean(item.get("uom")), qty_po,
+                    price, previous, actual, cumulative, remaining,
+                     nilai_previous, nilai_actual, nilai_cumulative, nilai_remaining, status,
+                     clean(payload.get("ttd_1")), clean(payload.get("ttd_2")), clean(payload.get("ttd_3")),
+                ))
+                saved_count += 1
+
+            conn.commit()
+            return {"success": True, "count": saved_count, "mapping_status": context.get("mapping_status")}
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cur.close()

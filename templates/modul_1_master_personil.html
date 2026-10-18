@@ -1,0 +1,93 @@
+{% extends "layout/base.html" %}
+
+{% block title %}Master Personil - {{ app_name|default('invoice-ptbsssatu') }}{% endblock %}
+
+{% block content %}
+<style>
+.mp-root{max-width:1200px;margin:0 auto;padding:20px 22px 32px;color:#101828}
+.mp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px}
+.mp-head h1{margin:0;font-size:22px}.mp-head p{margin:5px 0 0;color:#667085;font-size:13px}
+.mp-card{background:#fff;border:1px solid #e4e7ec;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,.04);overflow:hidden}
+.mp-toolbar{padding:14px;border-bottom:1px solid #eaecf0;display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.mp-field{display:flex;flex-direction:column;gap:5px}.mp-field label{font-size:11px;font-weight:700;color:#475467}.mp-field input{height:36px;border:1px solid #d0d5dd;border-radius:8px;padding:0 10px;min-width:280px;box-sizing:border-box}
+.mp-btn{height:36px;border-radius:8px;border:1px solid #d0d5dd;background:#fff;padding:0 13px;font-weight:700;font-size:12px;cursor:pointer}.mp-btn:hover{background:#f8fafc}.mp-btn.primary{background:#175cd3;color:#fff;border-color:#175cd3}.mp-btn.danger{color:#b42318;background:#fff5f4;border-color:#fecdca}.mp-btn.small{height:30px;padding:0 10px;font-size:11px}
+.mp-table-wrap{overflow:auto}.mp-table{width:100%;min-width:700px;border-collapse:collapse;font-size:12px}.mp-table th{background:#f8fafc;color:#475467;text-align:left;font-size:11px;font-weight:800;padding:11px 13px;border-bottom:1px solid #eaecf0;white-space:nowrap}.mp-table td{padding:11px 13px;border-bottom:1px solid #f0f2f5;vertical-align:middle}.mp-table tbody tr:hover{background:#f9fbff}.mp-table .num{width:60px;color:#667085}.mp-table .actions{width:170px;white-space:nowrap}.mp-empty{padding:38px;text-align:center;color:#667085}.mp-badge{display:inline-flex;padding:3px 7px;border-radius:999px;background:#ecfdf3;color:#027a48;font-size:10px;font-weight:800}
+.mp-modal{position:fixed;inset:0;background:rgba(16,24,40,.48);display:none;align-items:center;justify-content:center;padding:18px;z-index:10050}.mp-modal.open{display:flex}.mp-modal-card{width:min(560px,96vw);background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(16,24,40,.25);overflow:hidden}.mp-modal-head{display:flex;justify-content:space-between;align-items:center;padding:15px 18px;border-bottom:1px solid #eaecf0}.mp-modal-head h3{margin:0;font-size:16px}.mp-modal-close{border:1px solid #d0d5dd;background:#fff;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:18px}.mp-modal-body{padding:18px}.mp-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.mp-form-grid .full{grid-column:1/-1}.mp-form-grid label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:700;color:#475467}.mp-form-grid input{height:38px;border:1px solid #d0d5dd;border-radius:8px;padding:0 10px;font-size:13px}.mp-modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;background:#f8fafc;border-top:1px solid #eaecf0}.mp-note{margin:14px 0 0;padding:10px 12px;border-radius:8px;background:#f8fafc;color:#667085;font-size:11px;line-height:1.5}
+@media(max-width:650px){.mp-head{flex-direction:column}.mp-form-grid{grid-template-columns:1fr}.mp-form-grid .full{grid-column:auto}.mp-field input{min-width:220px}}
+</style>
+
+<div class="mp-root">
+    <div class="mp-head">
+        <div>
+            <h1>Master Personil</h1>
+            <p>Kelola nama dan jabatan yang dapat digunakan kembali pada Diwakili Oleh, Prepared By, dan Approved By di seluruh PI.</p>
+        </div>
+        {% if can_write %}<button type="button" class="mp-btn primary" id="btnPersonNew">+ Personil Baru</button>{% endif %}
+    </div>
+
+    <div class="mp-card">
+        <div class="mp-toolbar">
+            <div class="mp-field">
+                <label for="personSearch">Cari Nama / Jabatan</label>
+                <input id="personSearch" type="search" placeholder="Contoh: Budi atau Project Manager" autocomplete="off">
+            </div>
+            <button type="button" class="mp-btn" id="btnPersonSearch">Cari</button>
+            <button type="button" class="mp-btn" id="btnPersonReset">Reset</button>
+            <span id="personCount" style="font-size:11px;color:#667085;margin-left:auto;padding-bottom:9px">0 personil</span>
+        </div>
+        <div class="mp-table-wrap">
+            <table class="mp-table">
+                <thead><tr><th class="num">#</th><th>Nama</th><th>Jabatan</th><th>Status</th><th class="actions">Aksi</th></tr></thead>
+                <tbody id="personTableBody"><tr><td colspan="5" class="mp-empty">Memuat Master Personil...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mp-note">
+        Perubahan pada halaman ini menjadi sumber pilihan terpusat untuk form PI. Data PI lama tetap menyimpan nilai nama/jabatan yang sudah tersimpan; perubahan master tidak mengubah histori PI secara otomatis.
+    </div>
+</div>
+
+<div class="mp-modal" id="personModal" aria-hidden="true">
+    <div class="mp-modal-card">
+        <div class="mp-modal-head"><div><h3 id="personModalTitle">Personil Baru</h3><div style="font-size:11px;color:#667085;margin-top:3px">Simpan sekali, gunakan kembali pada banyak PI.</div></div><button class="mp-modal-close" type="button" id="btnPersonClose">×</button></div>
+        <form id="personForm">
+            <div class="mp-modal-body">
+                <input type="hidden" id="personId">
+                <div class="mp-form-grid">
+                    <label>Nama<input id="personNama" required maxlength="200" placeholder="Nama lengkap"></label>
+                    <label>Jabatan<input id="personJabatan" maxlength="200" placeholder="Jabatan / posisi"></label>
+                </div>
+            </div>
+            <div class="mp-modal-foot"><button type="button" class="mp-btn" id="btnPersonCancel">Batal</button><button type="submit" class="mp-btn primary">Simpan</button></div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+let persons=[];
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function openModal(){ $('personModal').classList.add('open'); $('personModal').setAttribute('aria-hidden','false'); setTimeout(()=> $('personNama')?.focus(),50); }
+function closeModal(){ $('personModal').classList.remove('open'); $('personModal').setAttribute('aria-hidden','true'); }
+async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts,headers:{'Accept':'application/json',...(opts.headers||{})}});let j={};try{j=await r.json()}catch(e){throw new Error('Respons server bukan JSON.');}if(!r.ok||j.success===false)throw new Error(j.message||('HTTP '+r.status));return j;}
+function render(){
+ const body=$('personTableBody');$('personCount').textContent=persons.length+' personil';
+ if(!persons.length){body.innerHTML='<tr><td colspan="5" class="mp-empty">Tidak ada data personil.</td></tr>';return;}
+ body.innerHTML=persons.map((p,i)=>`<tr><td class="num">${i+1}</td><td><strong>${esc(p.nama)}</strong></td><td>${esc(p.jabatan||'-')}</td><td><span class="mp-badge">Aktif</span></td><td class="actions">{% if can_write %}<button class="mp-btn small" data-edit="${p.id}">Edit</button> <button class="mp-btn small danger" data-deactivate="${p.id}">Nonaktifkan</button>{% else %}<span style="color:#98a2b3">Read only</span>{% endif %}</td></tr>`).join('');
+ body.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>edit(Number(b.dataset.edit))));
+ body.querySelectorAll('[data-deactivate]').forEach(b=>b.addEventListener('click',()=>deactivate(Number(b.dataset.deactivate))));
+}
+async function load(){const q=$('personSearch').value.trim();try{const j=await api('/api/modul-1/persons?search='+encodeURIComponent(q));persons=Array.isArray(j.data)?j.data:[];render();}catch(e){$('personTableBody').innerHTML='<tr><td colspan="5" class="mp-empty">'+esc(e.message)+'</td></tr>';}}
+function edit(id){const p=persons.find(x=>Number(x.id)===id);if(!p)return;$('personId').value=p.id;$('personNama').value=p.nama||'';$('personJabatan').value=p.jabatan||'';$('personModalTitle').textContent='Edit Personil';openModal();}
+async function deactivate(id){const p=persons.find(x=>Number(x.id)===id);if(!p)return;if(!confirm('Nonaktifkan '+p.nama+'? Data tidak akan dihapus dari histori PI.'))return;try{await api('/api/modul-1/persons/'+id,{method:'DELETE'});await load();}catch(e){alert(e.message);}}
+$('btnPersonNew')?.addEventListener('click',()=>{$('personForm').reset();$('personId').value='';$('personModalTitle').textContent='Personil Baru';openModal();});
+$('btnPersonClose')?.addEventListener('click',closeModal);$('btnPersonCancel')?.addEventListener('click',closeModal);$('personModal')?.addEventListener('click',e=>{if(e.target===$('personModal'))closeModal();});
+$('btnPersonSearch')?.addEventListener('click',load);$('btnPersonReset')?.addEventListener('click',()=>{$('personSearch').value='';load();});$('personSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter')load();});
+$('personForm')?.addEventListener('submit',async e=>{e.preventDefault();const id=$('personId').value;const payload={nama:$('personNama').value,jabatan:$('personJabatan').value};if(id)payload.id=Number(id);try{await api(id?'/api/modul-1/persons/'+id:'/api/modul-1/persons',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});closeModal();await load();}catch(err){alert(err.message);}});
+load();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,312 @@
+<aside class="sidebar" id="appSidebar">
+
+    <!-- =====================================================
+         BRAND
+    ====================================================== -->
+
+    <div class="sidebar-brand">
+
+        <div class="brand-title">
+            PT BSS
+        </div>
+
+        <div class="brand-subtitle">
+            Invoice Management System
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         NAVIGATION
+    ====================================================== -->
+
+    <nav class="sidebar-menu">
+
+
+        <!-- =================================================
+             DASHBOARD
+        ================================================== -->
+
+        <a
+            href="{{ url_for('dashboard') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Dashboard
+            </div>
+
+        </a>
+
+
+        <div class="menu-divider"></div>
+
+
+        <!-- =================================================
+             MENU UTAMA
+        ================================================== -->
+
+
+        <!-- MASTER REFERENSI -->
+
+        {% if permissions.management
+           or permissions.project_manager
+           or permissions.project_support
+           or permissions.super_admin %}
+
+        <a
+            href="{{ url_for('navigation.master_referensi') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Master Referensi
+            </div>
+
+            <div class="menu-description">
+                Data referensi sistem
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+        <!-- DATABASE & KONTRAK -->
+
+        {% if permissions.management
+           or permissions.project_manager
+           or permissions.project_support
+           or permissions.super_admin %}
+
+        <a
+            href="{{ url_for('navigation.database_kontrak') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Database & Kontrak
+            </div>
+
+            <div class="menu-description">
+                Kontrak dan proforma invoice
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+        <!-- INVOICE & DOKUMEN -->
+
+        {% if permissions.management
+           or permissions.project_manager
+           or permissions.project_support
+           or permissions.super_admin %}
+
+        <a
+            href="{{ url_for('navigation.invoice_dokumen') }}"
+            class="menu-link module-link"
+            data-module="modul-2"
+        >
+
+            <div class="menu-main">
+                Invoice & Dokumen
+            </div>
+
+            <div class="menu-description">
+                Pengelolaan invoice dan dokumen
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+        <!-- INVOICE & TAX -->
+
+        {% if permissions.management
+           or permissions.finance_tax
+           or permissions.project_manager
+           or permissions.super_admin %}
+
+        <a
+            href="{{ url_for('navigation.invoice_tax') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Invoice & Tax
+            </div>
+
+            <div class="menu-description">
+                Invoice dan perpajakan
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+        <!-- REKAP PENYERAPAN PO -->
+
+        {% if permissions.management
+           or permissions.project_manager
+           or permissions.project_support
+           or permissions.super_admin %}
+
+        <a
+            href="{{ url_for('master_po.index') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Master PO & Rekap Penyerapan
+            </div>
+
+            <div class="menu-description">
+                Plafon, item, realisasi, dan sisa anggaran
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+        <!-- ARSIP DOKUMEN -->
+
+        {% if permissions.management
+           or permissions.finance_tax
+           or permissions.project_manager
+           or permissions.project_support
+           or permissions.super_admin %}
+
+        <a
+            href="{{ url_for('archive.index') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Arsip Dokumen
+            </div>
+
+            <div class="menu-description">
+                Pusat arsip dokumen
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+
+        <!-- =================================================
+             MASTER DATA
+        ================================================== -->
+
+        {% if permissions.management
+           or permissions.project_manager
+           or permissions.project_support
+           or permissions.super_admin %}
+
+        <div class="menu-divider"></div>
+
+        <div class="menu-section-title">
+            MASTER DATA
+        </div>
+
+
+        <!-- MASTER PERSONIL -->
+
+        <a
+            href="{{ url_for('navigation.master_personil') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Master Personil
+            </div>
+
+            <div class="menu-description">
+                Nama & Jabatan
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+
+        <!-- =================================================
+             SYSTEM
+        ================================================== -->
+
+        {% if permissions.super_admin %}
+
+        <div class="menu-divider"></div>
+
+        <div class="menu-section-title">
+            SYSTEM
+        </div>
+
+
+        <!-- MANAJEMEN AKUN -->
+
+        <a
+            href="{{ url_for('dashboard', menu='users') }}"
+            class="menu-link"
+        >
+
+            <div class="menu-main">
+                Manajemen Akun
+            </div>
+
+            <div class="menu-description">
+                Pengguna dan hak akses
+            </div>
+
+        </a>
+
+        {% endif %}
+
+
+
+    </nav>
+
+
+    <!-- =====================================================
+         USER INFORMATION
+    ====================================================== -->
+
+    <div class="sidebar-footer">
+
+        <div class="sidebar-user">
+
+            <span>
+                User
+            </span>
+
+            <strong>
+                {{ session.get("current_user") }}
+            </strong>
+
+        </div>
+
+
+        <div class="sidebar-role">
+
+            <span>
+                Role
+            </span>
+
+            <strong>
+                {{ session.get("current_role") }}
+            </strong>
+
+        </div>
+
+    </div>
+
+
+</aside>

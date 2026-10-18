@@ -1,0 +1,1282 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TKDN - {{ pi_no or 'Dokumen TKDN' }}</title>
+
+    <style>
+        :root {
+            --tkdn-primary: #006b57;
+            --tkdn-primary-dark: #005345;
+            --tkdn-blue: #2563eb;
+            --tkdn-border: #d7dee8;
+            --tkdn-text: #10233f;
+            --tkdn-muted: #64748b;
+            --tkdn-bg: #f5f7fa;
+            --tkdn-card: #ffffff;
+            --tkdn-warning-bg: #fff7ed;
+            --tkdn-warning-border: #fdba74;
+            --tkdn-success-bg: #ecfdf5;
+            --tkdn-success-border: #86efac;
+            --tkdn-danger-bg: #fef2f2;
+            --tkdn-danger-border: #fca5a5;
+            --tkdn-shadow: 0 12px 30px rgba(15, 23, 42, .10);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--tkdn-bg);
+            color: var(--tkdn-text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        button, input {
+            font: inherit;
+        }
+
+        .tkdn-page {
+            width: min(1440px, calc(100% - 32px));
+            margin: 28px auto 60px;
+        }
+
+        .tkdn-header {
+            background: var(--tkdn-card);
+            border: 1px solid var(--tkdn-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, .04);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .tkdn-header h1 {
+            margin: 12px 0 6px;
+            font-size: 28px;
+        }
+
+        .tkdn-header p {
+            margin: 0;
+            color: var(--tkdn-muted);
+        }
+
+        .identity-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 22px;
+        }
+
+        .identity-item {
+            border: 1px solid var(--tkdn-border);
+            border-radius: 12px;
+            padding: 14px;
+            background: #fbfcfe;
+        }
+
+        .identity-label {
+            font-size: 11px;
+            color: var(--tkdn-muted);
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: .05em;
+        }
+
+        .identity-value {
+            margin-top: 6px;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            border: 0;
+            border-radius: 10px;
+            padding: 11px 17px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: .15s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: var(--tkdn-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--tkdn-primary-dark);
+        }
+
+        .btn-blue {
+            background: var(--tkdn-blue);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e8edf3;
+            color: var(--tkdn-text);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .preview-card {
+            margin-top: 18px;
+            background: white;
+            border: 1px solid var(--tkdn-border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, .04);
+        }
+
+        .preview-head {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--tkdn-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .preview-head h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .preview-status {
+            font-size: 12px;
+            color: var(--tkdn-muted);
+        }
+
+        #tkdnPreview {
+            min-height: 300px;
+            padding: 18px;
+            background: #f8fafc;
+            overflow: auto;
+        }
+
+        .empty-preview {
+            min-height: 260px;
+            display: grid;
+            place-items: center;
+            color: var(--tkdn-muted);
+            text-align: center;
+        }
+
+        .bottom-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 18px 20px;
+            border-top: 1px solid var(--tkdn-border);
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(15, 23, 42, .58);
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-backdrop.is-open {
+            display: flex;
+        }
+
+        .tkdn-modal {
+            width: min(1120px, 100%);
+            max-height: min(900px, calc(100vh - 40px));
+            background: white;
+            border-radius: 18px;
+            box-shadow: 0 30px 80px rgba(0,0,0,.28);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--tkdn-border);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .modal-subtitle {
+            margin: 4px 0 0;
+            color: var(--tkdn-muted);
+            font-size: 13px;
+        }
+
+        .modal-close {
+            width: 38px;
+            height: 38px;
+            border: 0;
+            border-radius: 10px;
+            background: #f1f5f9;
+            cursor: pointer;
+            font-size: 22px;
+        }
+
+        .modal-body {
+            padding: 22px;
+            overflow-y: auto;
+        }
+
+        .section {
+            border: 1px solid var(--tkdn-border);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            margin: 0 0 14px;
+            font-size: 15px;
+            font-weight: 850;
+        }
+
+        .section-description {
+            color: var(--tkdn-muted);
+            font-size: 13px;
+            margin: -7px 0 15px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .form-grid.four {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 7px;
+            font-size: 12px;
+            font-weight: 800;
+            color: #334155;
+        }
+
+        .field input {
+            width: 100%;
+            height: 42px;
+            border: 1px solid #cbd5e1;
+            border-radius: 9px;
+            padding: 0 12px;
+            outline: none;
+            background: white;
+            color: var(--tkdn-text);
+        }
+
+        .field input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, .10);
+        }
+
+        .field input[type="number"] {
+            text-align: right;
+        }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .component-box {
+            border: 1px solid var(--tkdn-border);
+            border-radius: 12px;
+            padding: 15px;
+            background: #fbfcfe;
+        }
+
+        .component-box h4 {
+            margin: 0 0 12px;
+            font-size: 14px;
+        }
+
+        .component-fields {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .calc-value {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--tkdn-muted);
+        }
+
+        .calc-value strong {
+            color: var(--tkdn-text);
+        }
+
+        .distribution-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 16px;
+            border-radius: 12px;
+            padding: 16px;
+            background: #f8fafc;
+            border: 1px solid var(--tkdn-border);
+        }
+
+        .distribution-label {
+            font-weight: 800;
+        }
+
+        .distribution-value {
+            font-size: 20px;
+            font-weight: 900;
+        }
+
+        .distribution-card.valid {
+            background: var(--tkdn-success-bg);
+            border-color: var(--tkdn-success-border);
+        }
+
+        .distribution-card.invalid {
+            background: var(--tkdn-warning-bg);
+            border-color: var(--tkdn-warning-border);
+        }
+
+        .validation-message {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .signature-box {
+            border: 1px dashed #94a3b8;
+            border-radius: 12px;
+            padding: 14px;
+            background: #f8fafc;
+        }
+
+        .signature-preview {
+            margin-top: 10px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9px;
+            background: white;
+            border: 1px solid var(--tkdn-border);
+        }
+
+        .signature-preview img {
+            max-width: 280px;
+            max-height: 120px;
+            object-fit: contain;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 16px 22px;
+            border-top: 1px solid var(--tkdn-border);
+            background: #fbfcfe;
+        }
+
+        .saving {
+            opacity: .7;
+            pointer-events: none;
+        }
+
+        .toast {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            z-index: 1200;
+            max-width: 420px;
+            padding: 13px 16px;
+            border-radius: 11px;
+            background: #0f172a;
+            color: white;
+            box-shadow: var(--tkdn-shadow);
+            display: none;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .toast.show { display: block; }
+        .toast.success { background: #047857; }
+        .toast.error { background: #b91c1c; }
+
+        @media (max-width: 900px) {
+            .identity-grid,
+            .form-grid,
+            .form-grid.four,
+            .component-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .component-fields {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .tkdn-page {
+                width: min(100% - 18px, 1440px);
+                margin-top: 10px;
+            }
+
+            .tkdn-header {
+                padding: 16px;
+            }
+
+            .toolbar,
+            .bottom-actions,
+            .modal-footer {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .component-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-backdrop {
+                padding: 8px;
+            }
+
+            .tkdn-modal {
+                max-height: calc(100vh - 16px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="tkdn-page"
+     id="tkdnPage"
+     data-pi-no="{{ pi_no or '' }}"
+     data-nomor-kontrak="{{ nomor_kontrak or '' }}">
+
+    <section class="tkdn-header">
+        <span class="eyebrow">Dokumen TKDN</span>
+        <h1>Formulir TKDN</h1>
+        <p>Edit parameter TKDN terlebih dahulu, periksa preview, kemudian cetak atau download dokumen final.</p>
+
+        <div class="identity-grid">
+            <div class="identity-item">
+                <div class="identity-label">Proforma Invoice</div>
+                <div class="identity-value">{{ pi_no or '-' }}</div>
+            </div>
+            <div class="identity-item">
+                <div class="identity-label">Nomor Kontrak</div>
+                <div class="identity-value">{{ nomor_kontrak or '-' }}</div>
+            </div>
+            <div class="identity-item">
+                <div class="identity-label">Nomor PO</div>
+                <div class="identity-value" id="identityPo">{{ nomor_po or '-' }}</div>
+            </div>
+            <div class="identity-item">
+                <div class="identity-label">Total Tagihan</div>
+                <div class="identity-value" id="identityTotal">Rp 0,00</div>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button type="button" class="btn btn-secondary" id="btnBackTkdn">
+                ← Kembali
+            </button>
+            <button type="button" class="btn btn-primary" id="btnEditTkdn">
+                ✎ Edit TKDN
+            </button>
+        </div>
+    </section>
+
+    <section class="preview-card">
+        <div class="preview-head">
+            <div>
+                <h2>Preview TKDN</h2>
+                <div class="preview-status" id="previewStatus">Memuat dokumen...</div>
+            </div>
+        </div>
+
+        <div id="tkdnPreview">
+            <div class="empty-preview">Memuat preview TKDN...</div>
+        </div>
+
+        <div class="bottom-actions">
+            <button type="button" class="btn btn-secondary" id="btnPrintTkdn">
+                Cetak / Print TKDN
+            </button>
+            <button type="button" class="btn btn-blue" id="btnDownloadTkdn">
+                Download File TKDN
+            </button>
+        </div>
+    </section>
+</div>
+
+<!-- MODAL EDIT TKDN -->
+<div class="modal-backdrop" id="tkdnModal" aria-hidden="true">
+    <div class="tkdn-modal" role="dialog" aria-modal="true" aria-labelledby="tkdnModalTitle">
+        <div class="modal-header">
+            <div>
+                <h2 id="tkdnModalTitle">Edit Parameter TKDN</h2>
+                <div class="modal-subtitle">
+                    PI: <strong>{{ pi_no or '-' }}</strong>
+                    &nbsp;•&nbsp;
+                    Kontrak: <strong>{{ nomor_kontrak or '-' }}</strong>
+                </div>
+            </div>
+            <button type="button" class="modal-close" id="btnCloseTkdnModal" aria-label="Tutup">×</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="tkdnForm" novalidate>
+
+                <section class="section">
+                    <h3 class="section-title">Informasi Dokumen</h3>
+
+                    <div class="form-grid four">
+                        <div class="field">
+                            <label for="lokasi_office">Lokasi Office</label>
+                            <input id="lokasi_office" name="lokasi_office" type="text">
+                        </div>
+
+                        <div class="field">
+                            <label for="tanggal_dokumen">Tanggal Dokumen</label>
+                            <input id="tanggal_dokumen" name="tanggal_dokumen" type="date">
+                        </div>
+
+                        <div class="field">
+                            <label for="total_tagihan">Rujukan Total Tagihan (Rp)</label>
+                            <input id="total_tagihan" name="total_tagihan" type="number" min="0" step="0.01">
+                        </div>
+
+                        <div class="field">
+                            <label for="nama_direktur">Nama Direktur</label>
+                            <input id="nama_direktur" name="nama_direktur" type="text">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h3 class="section-title">Rincian Komponen Bobot Persentase (%)</h3>
+                    <p class="section-description">
+                        Nominal dihitung otomatis dari Rujukan Total Tagihan × bobot persentase.
+                    </p>
+
+                    <div class="component-grid">
+
+                        <div class="component-box">
+                            <h4>I. Biaya Bahan (Material)</h4>
+                            <div class="component-fields">
+                                <div class="field">
+                                    <label for="p_kdn_1">KDN Bahan (%)</label>
+                                    <input class="percent-field" id="p_kdn_1" name="p_kdn_1" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KDN: <strong id="value_kdn_1">Rp 0,00</strong></div>
+                                </div>
+                                <div class="field">
+                                    <label for="p_kln_1">KLN Bahan (%)</label>
+                                    <input class="percent-field" id="p_kln_1" name="p_kln_1" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KLN: <strong id="value_kln_1">Rp 0,00</strong></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="component-box">
+                            <h4>II. Biaya Tenaga Kerja &amp; Konsultan</h4>
+                            <div class="component-fields">
+                                <div class="field">
+                                    <label for="p_kdn_2">KDN Tenaga Kerja (%)</label>
+                                    <input class="percent-field" id="p_kdn_2" name="p_kdn_2" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KDN: <strong id="value_kdn_2">Rp 0,00</strong></div>
+                                </div>
+                                <div class="field">
+                                    <label for="p_kln_2">KLN Tenaga Kerja (%)</label>
+                                    <input class="percent-field" id="p_kln_2" name="p_kln_2" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KLN: <strong id="value_kln_2">Rp 0,00</strong></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="component-box">
+                            <h4>III. Biaya Alat Kerja / Fasilitas Kerja</h4>
+                            <div class="component-fields">
+                                <div class="field">
+                                    <label for="p_kdn_3">KDN Alat Kerja (%)</label>
+                                    <input class="percent-field" id="p_kdn_3" name="p_kdn_3" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KDN: <strong id="value_kdn_3">Rp 0,00</strong></div>
+                                </div>
+                                <div class="field">
+                                    <label for="p_kln_3">KLN Alat Kerja (%)</label>
+                                    <input class="percent-field" id="p_kln_3" name="p_kln_3" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KLN: <strong id="value_kln_3">Rp 0,00</strong></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="component-box">
+                            <h4>IV. Biaya Jasa Umum</h4>
+                            <div class="component-fields">
+                                <div class="field">
+                                    <label for="p_kdn_4">KDN Jasa Umum (%)</label>
+                                    <input class="percent-field" id="p_kdn_4" name="p_kdn_4" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KDN: <strong id="value_kdn_4">Rp 0,00</strong></div>
+                                </div>
+                                <div class="field">
+                                    <label for="p_kln_4">KLN Jasa Umum (%)</label>
+                                    <input class="percent-field" id="p_kln_4" name="p_kln_4" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">Nilai KLN: <strong id="value_kln_4">Rp 0,00</strong></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="component-box">
+                            <h4>B. Komponen Bukan Biaya</h4>
+                            <div class="component-fields" style="grid-template-columns:1fr;">
+                                <div class="field">
+                                    <label for="p_non_cost">Bobot Komponen Bukan Biaya (%)</label>
+                                    <input class="percent-field" id="p_non_cost" name="p_non_cost" type="number" min="0" max="100" step="0.01">
+                                    <div class="calc-value">
+                                        Nilai Bukan Biaya: <strong id="value_non_cost">Rp 0,00</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h3 class="section-title">Validasi Distribusi Bobot</h3>
+
+                    <div class="distribution-card" id="distributionCard">
+                        <div>
+                            <div class="distribution-label">Total Akumulasi Bobot</div>
+                            <div class="validation-message" id="distributionMessage">
+                                Menghitung...
+                            </div>
+                        </div>
+                        <div class="distribution-value" id="distributionTotal">0.00%</div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h3 class="section-title">Tanda Tangan Digital Direktur</h3>
+                    <div class="signature-box">
+                        <div class="field">
+                            <label for="ttd_direktur">Upload Tanda Tangan Direktur</label>
+                            <input id="ttd_direktur" type="file" accept="image/png,image/jpeg">
+                        </div>
+
+                        <div class="signature-preview" id="signaturePreview">
+                            <span style="color:#94a3b8;font-size:13px;">
+                                Belum ada tanda tangan baru.
+                            </span>
+                        </div>
+                    </div>
+                </section>
+
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelTkdn">
+                Batal
+            </button>
+            <button type="button" class="btn btn-primary" id="btnSaveTkdn">
+                Simpan Perubahan
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="tkdnToast"></div>
+
+<script>
+(function () {
+    "use strict";
+
+    const page = document.getElementById("tkdnPage");
+    const piNo = page.dataset.piNo || "";
+    const nomorKontrak = page.dataset.nomorKontrak || "";
+
+    /*
+     * Semua operasi TKDN menggunakan endpoint dokumen generik Modul 2.
+     * Parameter nomor kontrak dan PI dikirim pada query string agar
+     * konsisten dengan endpoint backend:
+     * /api/modul-2/document/tkdn
+     */
+    const baseApi = "/api/modul-2/document/tkdn";
+    const query =
+        `nomor_kontrak=${encodeURIComponent(nomorKontrak)}` +
+        `&pi=${encodeURIComponent(piNo)}`;
+
+    const API = {
+        detail: `${baseApi}?${query}`,
+        save: `${baseApi}?${query}&action=save`,
+        preview: `${baseApi}?${query}&action=preview`,
+        download: `${baseApi}?${query}&action=download`
+    };
+
+    const modal = document.getElementById("tkdnModal");
+    const form = document.getElementById("tkdnForm");
+    const preview = document.getElementById("tkdnPreview");
+    const previewStatus = document.getElementById("previewStatus");
+    const distributionCard = document.getElementById("distributionCard");
+    const distributionTotal = document.getElementById("distributionTotal");
+    const distributionMessage = document.getElementById("distributionMessage");
+    const toast = document.getElementById("tkdnToast");
+    const signatureInput = document.getElementById("ttd_direktur");
+    const signaturePreview = document.getElementById("signaturePreview");
+
+    const PERCENT_FIELDS = [
+        "p_kdn_1",
+        "p_kln_1",
+        "p_kdn_2",
+        "p_kln_2",
+        "p_kdn_3",
+        "p_kln_3",
+        "p_kdn_4",
+        "p_kln_4",
+        "p_non_cost"
+    ];
+
+    const VALUE_MAP = {
+        p_kdn_1: "value_kdn_1",
+        p_kln_1: "value_kln_1",
+        p_kdn_2: "value_kdn_2",
+        p_kln_2: "value_kln_2",
+        p_kdn_3: "value_kdn_3",
+        p_kln_3: "value_kln_3",
+        p_kdn_4: "value_kdn_4",
+        p_kln_4: "value_kln_4",
+        p_non_cost: "value_non_cost"
+    };
+
+    let currentData = {};
+    let signatureDataUrl = null;
+
+    function number(value, fallback = 0) {
+        if (value === null || value === undefined || value === "") {
+            return fallback;
+        }
+
+        const normalized = String(value)
+            .trim()
+            .replace(/\s/g, "")
+            .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+            .replace(",", ".");
+
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function formatRp(value) {
+        return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(number(value));
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function showToast(message, type = "success") {
+        toast.textContent = message;
+        toast.className = `toast show ${type}`;
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(() => {
+            toast.className = "toast";
+        }, 3500);
+    }
+
+    async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json",
+                ...(options.body ? {"Content-Type": "application/json"} : {}),
+                ...(options.headers || {})
+            },
+            ...options
+        });
+
+        const text = await response.text();
+        let data = {};
+
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (error) {
+            throw new Error(
+                `Server mengembalikan response yang bukan JSON (${response.status}).`
+            );
+        }
+
+        if (!response.ok || data.success === false) {
+            throw new Error(
+                data.message ||
+                data.error ||
+                `Request gagal (${response.status}).`
+            );
+        }
+
+        return data;
+    }
+
+    function setField(name, value) {
+        const element = document.getElementById(name);
+        if (!element) return;
+
+        if (element.type === "date") {
+            element.value = normalizeDateForInput(value);
+        } else {
+            element.value = value ?? "";
+        }
+    }
+
+    function normalizeDateForInput(value) {
+        if (!value) return "";
+
+        const text = String(value).trim();
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+            return text;
+        }
+
+        const match = text.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
+        if (match) {
+            return `${match[3]}-${match[2]}-${match[1]}`;
+        }
+
+        return text.slice(0, 10);
+    }
+
+    function readForm() {
+        const payload = {};
+
+        [
+            "lokasi_office",
+            "tanggal_dokumen",
+            "nama_direktur"
+        ].forEach(name => {
+            payload[name] = document.getElementById(name).value.trim();
+        });
+
+        payload.total_tagihan = number(
+            document.getElementById("total_tagihan").value
+        );
+
+        PERCENT_FIELDS.forEach(name => {
+            payload[name] = number(
+                document.getElementById(name).value
+            );
+        });
+
+        payload.ttd_direktur = signatureDataUrl;
+
+        // Identitas dokumen dikirim juga di body agar payload Save/Preview
+        // tetap lengkap selain parameter yang dikirim melalui query string.
+        payload.nomor_kontrak = nomorKontrak;
+        payload.pi = piNo;
+
+        return payload;
+    }
+
+    function fillForm(data) {
+        currentData = data || {};
+
+        setField("lokasi_office", currentData.lokasi_office || "Luwuk");
+        setField(
+            "tanggal_dokumen",
+            currentData.tanggal_dokumen || new Date().toISOString().slice(0, 10)
+        );
+        setField("total_tagihan", currentData.total_tagihan || 0);
+        setField(
+            "nama_direktur",
+            currentData.nama_direktur || "Ir. Ferry Tatimu"
+        );
+
+        PERCENT_FIELDS.forEach(name => {
+            setField(name, number(currentData[name] || 0).toFixed(2));
+        });
+
+        signatureDataUrl = currentData.ttd_direktur || null;
+
+        if (signatureDataUrl) {
+            signaturePreview.innerHTML =
+                `<img src="${escapeHtml(signatureDataUrl)}" alt="Tanda tangan direktur">`;
+        } else {
+            signaturePreview.innerHTML =
+                `<span style="color:#94a3b8;font-size:13px;">Belum ada tanda tangan.</span>`;
+        }
+
+        updateCalculations();
+        updateIdentity();
+    }
+
+    function updateIdentity() {
+        const total = number(document.getElementById("total_tagihan").value);
+        document.getElementById("identityTotal").textContent = formatRp(total);
+
+        if (currentData.nomor_po) {
+            document.getElementById("identityPo").textContent = currentData.nomor_po;
+        }
+    }
+
+    function updateCalculations() {
+        const total = number(document.getElementById("total_tagihan").value);
+
+        let distribution = 0;
+
+        PERCENT_FIELDS.forEach(name => {
+            const percent = Math.min(
+                100,
+                Math.max(0, number(document.getElementById(name).value))
+            );
+
+            distribution += percent;
+
+            const target = document.getElementById(VALUE_MAP[name]);
+            if (target) {
+                target.textContent = formatRp(total * percent / 100);
+            }
+        });
+
+        distributionTotal.textContent = `${distribution.toFixed(2)}%`;
+
+        const difference = 100 - distribution;
+
+        if (Math.abs(difference) <= 0.01) {
+            distributionCard.classList.add("valid");
+            distributionCard.classList.remove("invalid");
+            distributionMessage.textContent =
+                "✓ Total akumulasi bobot sudah tepat 100%.";
+        } else {
+            distributionCard.classList.add("invalid");
+            distributionCard.classList.remove("valid");
+
+            if (difference > 0) {
+                distributionMessage.textContent =
+                    `⚠ Bobot masih kurang ${difference.toFixed(2)}%.`;
+            } else {
+                distributionMessage.textContent =
+                    `⚠ Bobot melebihi 100% sebesar ${Math.abs(difference).toFixed(2)}%.`;
+            }
+        }
+
+        updateIdentity();
+    }
+
+    function isDistributionValid() {
+        const total = PERCENT_FIELDS.reduce((sum, name) => {
+            return sum + number(document.getElementById(name).value);
+        }, 0);
+
+        return Math.abs(total - 100) <= 0.01;
+    }
+
+    function openModal() {
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        document.getElementById("lokasi_office").focus();
+    }
+
+    function closeModal() {
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    }
+
+    async function loadTkdn() {
+        previewStatus.textContent = "Memuat data TKDN...";
+
+        try {
+            const result = await fetchJson(API.detail);
+            const data = result.data || result.tkdn || result;
+
+            fillForm(data);
+
+            await refreshPreview();
+
+            previewStatus.textContent = "Data TKDN siap diedit.";
+        } catch (error) {
+            /*
+             * Jika data TKDN belum pernah disimpan, editor tetap dibuka
+             * menggunakan default dari backend/template.
+             */
+            fillForm({
+                lokasi_office: "Luwuk",
+                tanggal_dokumen: new Date().toISOString().slice(0, 10),
+                nama_direktur: "Ir. Ferry Tatimu",
+                total_tagihan: {{ total_tagihan|default(0)|tojson }},
+                p_kdn_1: 15.09,
+                p_kln_1: 1.51,
+                p_kdn_2: 28.26,
+                p_kln_2: 0,
+                p_kdn_3: 47.18,
+                p_kln_3: 1.51,
+                p_kdn_4: 1.55,
+                p_kln_4: 0,
+                p_non_cost: 4.89
+            });
+
+            preview.innerHTML = `
+                <div class="empty-preview">
+                    <div>
+                        <strong>Data TKDN belum tersimpan.</strong><br>
+                        Klik <b>Edit TKDN</b> untuk mengisi parameter sebelum membuat dokumen.
+                    </div>
+                </div>
+            `;
+
+            previewStatus.textContent = "TKDN belum memiliki parameter tersimpan.";
+        }
+    }
+
+    async function refreshPreview() {
+        previewStatus.textContent = "Memperbarui preview...";
+
+        const params = readForm();
+
+        try {
+            const result = await fetchJson(API.preview, {
+                method: "POST",
+                body: JSON.stringify(params)
+            });
+
+            const html =
+                result.html ||
+                result.data?.html ||
+                result.preview ||
+                "";
+
+            if (!html) {
+                throw new Error("Server tidak mengembalikan HTML preview TKDN.");
+            }
+
+            preview.innerHTML = html;
+            previewStatus.textContent = "Preview diperbarui.";
+        } catch (error) {
+            /*
+             * Preview tetap tidak merusak editor apabila endpoint preview
+             * belum dipasang. User masih bisa menyimpan parameter.
+             */
+            previewStatus.textContent = "Preview belum tersedia.";
+            console.warn("TKDN preview:", error.message);
+        }
+    }
+
+    async function saveTkdn() {
+        if (!isDistributionValid()) {
+            showToast(
+                "Total distribusi bobot harus tepat 100% sebelum disimpan.",
+                "error"
+            );
+            return;
+        }
+
+        const button = document.getElementById("btnSaveTkdn");
+        button.classList.add("saving");
+        button.textContent = "Menyimpan...";
+
+        try {
+            const payload = readForm();
+
+            const result = await fetchJson(API.save, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+
+            const saved = result.data || result.tkdn || payload;
+            currentData = {
+                ...currentData,
+                ...saved,
+                ...payload
+            };
+
+            closeModal();
+
+            await refreshPreview();
+
+            showToast("Perubahan TKDN berhasil disimpan.", "success");
+        } catch (error) {
+            showToast(error.message, "error");
+        } finally {
+            button.classList.remove("saving");
+            button.textContent = "Simpan Perubahan";
+        }
+    }
+
+    function downloadTkdn() {
+        window.location.href = API.download;
+    }
+
+    function printTkdn() {
+        const printWindow = window.open("", "_blank");
+
+        if (!printWindow) {
+            showToast("Popup diblokir browser. Izinkan popup untuk mencetak TKDN.", "error");
+            return;
+        }
+
+        const html = preview.innerHTML;
+
+        printWindow.document.open();
+        printWindow.document.write(`
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>TKDN - ${escapeHtml(piNo)}</title>
+                <style>
+                    body { margin: 0; padding: 10mm; background: white; }
+                    @media print {
+                        @page { size: A4; margin: 10mm; }
+                    }
+                </style>
+            </head>
+            <body>${html}</body>
+            </html>
+        `);
+        printWindow.document.close();
+
+        printWindow.onload = function () {
+            printWindow.focus();
+            printWindow.print();
+        };
+    }
+
+    signatureInput.addEventListener("change", function () {
+        const file = this.files && this.files[0];
+
+        if (!file) return;
+
+        if (!["image/png", "image/jpeg"].includes(file.type)) {
+            showToast("Tanda tangan harus berupa PNG atau JPG.", "error");
+            this.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = function (event) {
+            signatureDataUrl = event.target.result;
+
+            signaturePreview.innerHTML =
+                `<img src="${escapeHtml(signatureDataUrl)}" alt="Tanda tangan direktur">`;
+        };
+
+        reader.readAsDataURL(file);
+    });
+
+    document.querySelectorAll(".percent-field").forEach(input => {
+        input.addEventListener("input", updateCalculations);
+        input.addEventListener("change", updateCalculations);
+
+        input.addEventListener("blur", function () {
+            let value = number(this.value);
+
+            if (value < 0) value = 0;
+            if (value > 100) value = 100;
+
+            this.value = value.toFixed(2);
+            updateCalculations();
+        });
+    });
+
+    document.getElementById("total_tagihan")
+        .addEventListener("input", updateCalculations);
+
+    document.getElementById("btnEditTkdn")
+        .addEventListener("click", openModal);
+
+    document.getElementById("btnBackTkdn")
+        .addEventListener("click", function () {
+            if (window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+            window.location.href = "/modul/invoice-dokumen";
+        });
+
+    document.getElementById("btnCloseTkdnModal")
+        .addEventListener("click", closeModal);
+
+    document.getElementById("btnCancelTkdn")
+        .addEventListener("click", closeModal);
+
+    document.getElementById("btnSaveTkdn")
+        .addEventListener("click", saveTkdn);
+
+    document.getElementById("btnDownloadTkdn")
+        .addEventListener("click", downloadTkdn);
+
+    document.getElementById("btnPrintTkdn")
+        .addEventListener("click", printTkdn);
+
+    modal.addEventListener("click", function (event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && modal.classList.contains("is-open")) {
+            closeModal();
+        }
+    });
+
+    loadTkdn();
+})();
+</script>
+</body>
+</html>
