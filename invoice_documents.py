@@ -126,9 +126,13 @@ def invoice_context(invoice, transactions):
     record["tanggal_invoice"] = str(record.get("tanggal_invoice") or "-")
     record["jatuh_tempo"] = str(record.get("jatuh_tempo") or "-")
     pi_scope = str(record.get("lingkup_pekerjaan") or record.get("keterangan") or "").strip()
-    pi_total = sum((Decimal(str(item.get("qty") or 0)) * Decimal(str(item.get("harga_satuan") or 0)) for item in items), Decimal(0))
-    if not pi_total:
-        pi_total = money(record.get("nilai_gross"))
+    # Use the saved billing amount so later PI edits cannot change the printed invoice total.
+    if record.get("nilai_gross") not in (None, ""):
+        pi_total = gross
+    elif record.get("nilai_dpp") not in (None, ""):
+        pi_total = dpp + discount
+    else:
+        pi_total = sum((Decimal(str(item.get("qty") or 0)) * Decimal(str(item.get("harga_satuan") or 0)) for item in items), Decimal(0))
     pi_reference = Markup("")
     if record.get("pi_no"):
         pi_reference = Markup('<div style="font-size: 10.5px; color: #475569; margin-top: 4px;">PI No. ') + escape(record["pi_no"]) + Markup('</div>')
