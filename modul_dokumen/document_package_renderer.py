@@ -537,7 +537,12 @@ def render_document_package(
             if code == "tkdn":
                 if not saved_tkdn:
                     continue
-                rendered = _render_tkdn(saved_tkdn, source, nomor_kontrak, pi_no)
+                tkdn_payload = dict(saved_tkdn)
+                tkdn_payload["logo_1"] = package_params.get("logo_2") or package_params.get("logo_1")
+                tkdn_payload["logo_2"] = package_params.get("logo_3") or package_params.get("logo_2")
+                if package_params.get("master_pi"):
+                    tkdn_payload["master_pi"] = package_params["master_pi"]
+                rendered = _render_tkdn(tkdn_payload, source, nomor_kontrak, pi_no)
             elif code == "opname":
                 if not saved_opname:
                     continue

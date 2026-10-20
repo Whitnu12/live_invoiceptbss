@@ -17,6 +17,9 @@ import base64
 from datetime import date, datetime
 from html import escape
 
+from modul_dokumen.document_branding import BRANDING_CSS, standard_brand_header
+from modul_dokumen.master_package_config import load_config
+
 
 DEFAULTS = {
     "lokasi_office": "Luwuk",
@@ -403,6 +406,7 @@ def generate_tkdn_html(
         p_kdn_4 / p_kln_4
         p_non_cost
         ttd_direktur
+        logo_1 (perusahaan) / logo_2 (ISO)
     """
     incoming_params = dict(params or {})
     master_pi = incoming_params.get("master_pi") or {}
@@ -526,6 +530,17 @@ def generate_tkdn_html(
     kdn_4 = calc["kdn_4"]
     kln_4 = calc["kln_4"]
 
+    package_config = load_config(kontrak, pi) if any(
+        key not in incoming_params for key in ("logo_1", "logo_2")
+    ) else {}
+    branding_params = {
+        "logo_1": incoming_params.get("logo_1") if "logo_1" in incoming_params
+        else package_config.get("logo_2") or package_config.get("logo_1"),
+        "logo_2": incoming_params.get("logo_2") if "logo_2" in incoming_params
+        else package_config.get("logo_3") or package_config.get("logo_2"),
+    }
+    brand_header = standard_brand_header(branding_params)
+
     html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -549,12 +564,8 @@ body {{
     font-size:10px;
     line-height:1.3;
 }}
-.header {{
-    text-align:center;
-    border-bottom:2px solid #000;
-    padding-bottom:6px;
-    margin-bottom:10px;
-}}
+{BRANDING_CSS}
+.legacy-brand-header {{ break-inside:avoid; page-break-inside:avoid; }}
 .title {{
     text-align:center;
     font-weight:bold;
@@ -621,13 +632,7 @@ table.tkdn-grid td {{
 </head>
 <body>
 
-<div class="header">
-    <h2 style="margin:0;font-size:14px;">PT. BANGGAI SENTRAL SULAWESI</h2>
-    <p style="margin:2px 0;font-size:8px;">
-        Head Office: Jl. Urip Sumorharjo 53, Luwuk 94715,
-        Phone: 0461-21025 | email: Luwuk@ptbss.com
-    </p>
-</div>
+{brand_header}
 
 <div class="title">
     TABEL PERHITUNGAN TINGKAT KOMPONEN DALAM NEGERI - JASA
