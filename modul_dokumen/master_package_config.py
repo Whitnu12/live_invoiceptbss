@@ -8,6 +8,7 @@ PI in a small JSON sidecar so no database schema change is required.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 from typing import Any, Dict
@@ -17,6 +18,8 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT_DIR, "database_penyimpanan_aman")
 CONFIG_PATH = os.path.join(DATA_DIR, "master_paket_batch_config.json")
 LEGACY_LOGO_DIR = os.path.join(DATA_DIR, "pengaturan_logo_permanen")
+# Recognize the previous default without overriding a custom or cleared ISO logo.
+LEGACY_ISO_SHA256 = "e72ef84c5d068683cab4f32ec2d1d5feff518a94e5e30801c9722a962b33299a"
 PACKAGE_DOCUMENT_CODES = (
     "proforma-invoice",
     "rincian-pekerjaan",
@@ -98,6 +101,14 @@ def load_config(nomor_kontrak: Any, pi_no: Any) -> Dict[str, Any]:
     for name, value in defaults.items():
         if name not in saved:
             saved[name] = value
+    saved_iso = saved.get("logo_3")
+    if isinstance(saved_iso, str) and saved_iso.startswith("data:image/") and defaults.get("logo_3"):
+        try:
+            previous_iso = base64.b64decode(saved_iso.split(",", 1)[1], validate=True)
+        except (ValueError, IndexError):
+            previous_iso = b""
+        if hashlib.sha256(previous_iso).hexdigest() == LEGACY_ISO_SHA256:
+            saved["logo_3"] = defaults["logo_3"]
     saved.setdefault("dates", {})
     if not isinstance(saved["dates"], dict):
         saved["dates"] = {}

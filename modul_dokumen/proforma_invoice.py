@@ -11,6 +11,7 @@ Migrasi langsung dari proforma_invoice.py legacy.
 
 import base64
 from datetime import datetime
+from html import escape
 from modul_dokumen.document_branding import BRANDING_CSS, standard_brand_header
 from modul_dokumen.signature_roles import signer_text
 
@@ -482,6 +483,11 @@ def generate_proforma_invoice_html(
                             <td style="border: none; font-weight: bold;">Nomor Kontrak</td>
                             <td style="border: none; text-align: center;">:</td>
                             <td style="border: none;">{t_data_utama['Nomor Kontrak']}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold;">Nomor PO</td>
+                            <td style="border: none; text-align: center;">:</td>
+                            <td style="border: none;">{escape(str(t_data_utama.get('Nomor PO') or '-'))}</td>
                         </tr>
                         <tr>
                             <td style="border: none; font-weight: bold;">Jangka Waktu Kontrak</td>

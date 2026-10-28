@@ -30,7 +30,7 @@ def standard_brand_header(params: dict | None = None, *, title: str = "", subtit
     )
     right = (
         f'<img src="{html.escape(logo_2, quote=True)}" '
-        'style="height:50px;max-width:210px;object-fit:contain;display:block;margin-left:auto;" alt="Logo ISO">'
+        'style="width:100%;height:auto;max-height:50px;max-width:210px;object-fit:contain;display:block;margin-left:auto;" alt="Logo ISO">'
         if logo_2 else '<div style="height:50px;"></div>'
     )
     title_html = html.escape(title or "PT. BANGGAI SENTRAL SULAWESI")
@@ -53,7 +53,7 @@ def standard_brand_header(params: dict | None = None, *, title: str = "", subtit
 
 BRANDING_CSS = """
 .legacy-brand-header{width:100%;margin:5px 0 12px;border-collapse:collapse;table-layout:fixed}
-.legacy-brand-header td{border:none;vertical-align:middle;padding:0}
+.legacy-brand-header td{border:none;vertical-align:middle;padding:0;box-sizing:border-box}
 .legacy-brand-left{width:25%;text-align:left;padding-left:25px!important}
 .legacy-brand-center{width:50%;text-align:center;line-height:1.4}
 .legacy-brand-right{width:25%;text-align:right;padding-right:25px!important}
